@@ -36,5 +36,4 @@ jobs:
             ${{ vars.DOCKER_REGISTRY }}/${{ vars.DOCKER_IMAGE }}:latest
           platforms: |
             linux/amd64
-            linux/arm/v7
             linux/arm64/v8
