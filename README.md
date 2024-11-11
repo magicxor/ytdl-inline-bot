@@ -2,10 +2,12 @@
 
 A Telegram bot that allows users to download videos from YouTube via inline queries.
 
+https://github.com/user-attachments/assets/83826cf1-6486-4a7d-8631-6cdf44fac9d9
+
 ## Usage
 
 ```shell
-docker run -i -t -d --restart=always --name=youtube_telegram_inline_bot -e TELEGRAM_BOT_TOKEN='YOUR_TOKEN' magicxor/ytdl-inline-bot:latest
+docker run -i -t -d --restart=always --name=youtube_telegram_inline_bot -e TELEGRAM_BOT_TOKEN='YOUR_TOKEN' -e MEDIA_CHAT_ID=345347562 magicxor/ytdl-inline-bot:latest
 ```
 
 ## Environment variables
