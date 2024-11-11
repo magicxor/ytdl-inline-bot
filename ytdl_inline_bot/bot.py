@@ -178,10 +178,6 @@ async def download_video_and_replace(url: str, inline_message_id: str, context: 
             inline_message_id=inline_message_id,
             media=InputMediaVideo(media=ERR_LOADING_VIDEO_URL, caption="Failed to download the video.", width=ERR_VIDEO_WIDTH, height=ERR_VIDEO_HEIGHT, duration=ERR_VIDEO_DURATION, supports_streaming=False)
         )
-        await context.bot.edit_message_caption(
-            inline_message_id=inline_message_id,
-            caption="Failed to download the video."
-        )
 
 async def async_download_video(ydl_opts, url):
     """Asynchronously downloads a video using yt-dlp."""
