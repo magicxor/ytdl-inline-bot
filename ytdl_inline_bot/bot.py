@@ -211,7 +211,7 @@ async def inlinequery(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                 id=str(uuid.uuid4()),
                 video_url=PH_LOADING_VIDEO_URL,
                 title="Downloading...",
-                caption="Please wait while the video is being processed.",
+                caption="Please wait while the video is being processed. URL: " + query,
                 mime_type="video/mp4",
                 thumbnail_url=PH_THUMBNAIL_URL,
                 video_width=PH_VIDEO_WIDTH,
