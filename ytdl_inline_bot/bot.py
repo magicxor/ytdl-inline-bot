@@ -164,12 +164,21 @@ async def download_video_and_replace(url: str, inline_message_id: str, context: 
                 msg = await retry_operation(context.bot.send_video, max_retries=2, delay=1, chat_id=MEDIA_CHAT_ID, video=video_file, caption=(metadata.title + " " + url), width=metadata.width, height=metadata.height, duration=metadata.duration, supports_streaming=True)
 
                 logger.info(f"Video uploaded. Replacing the placeholder with the video {msg.video.file_id}")
-                # sleep 200 ms
-                await asyncio.sleep(0.2)
 
-                await context.bot.edit_message_media(
+                # Retry logic added for edit_message_media
+                await retry_operation(
+                    context.bot.edit_message_media,
+                    max_retries=2,
+                    delay=1,
                     inline_message_id=inline_message_id,
-                    media=InputMediaVideo(media=msg.video.file_id, caption=(metadata.title + " " + url), width=metadata.width, height=metadata.height, duration=metadata.duration, supports_streaming=True)
+                    media=InputMediaVideo(
+                        media=msg.video.file_id,
+                        caption=(metadata.title + " " + url),
+                        width=metadata.width,
+                        height=metadata.height,
+                        duration=metadata.duration,
+                        supports_streaming=True
+                    )
                 )
 
             # Update rate limit timestamp for non-VIP users only on successful download
