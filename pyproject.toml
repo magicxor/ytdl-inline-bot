@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "ytdl-inline-bot"
+version = "0.1.0"
+description = ""
+authors = ["Ilia Burakov"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+yt-dlp = "^2024.11.4"
+python-telegram-bot = "^21.7"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+ytdlbot = "ytdl_inline_bot.bot:main"
