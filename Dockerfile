@@ -21,7 +21,7 @@ ENV RATE_LIMIT_WINDOW_MINUTES=1
 RUN apt-get update && \
     apt-get upgrade -y && \
     python -m pip install --upgrade pip && \
-    apt-get install -y curl && \
+    apt-get install -y curl ffmpeg && \
     mkdir /app
 
 # Install poetry
