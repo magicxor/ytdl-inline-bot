@@ -32,6 +32,8 @@ WORKDIR /app
 
 COPY entrypoint.sh pyproject.toml poetry.lock* ./
 
+RUN chmod +x entrypoint.sh
+
 # Install dependencies without creating a virtual environment (since we're in a Docker container)
 RUN poetry config virtualenvs.create false && poetry install --no-interaction --no-ansi
 
