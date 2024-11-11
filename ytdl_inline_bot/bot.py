@@ -94,7 +94,7 @@ def get_best_video_audio_format(url: str):
             # Choose the smallest audio if none fit within the 8 MB constraint
             best_audio = min(audio_formats, key=lambda x: x['filesize'])
 
-        logger.info(f"Best video format: {best_video}; best audio format: {best_audio}")
+        logger.info(f"Best video format: {best_video}; \n\nBest audio format: {best_audio}")
 
     return VideoMetadata(best_video, best_audio, title, duration, width, height)
 
@@ -159,8 +159,14 @@ async def download_video_and_replace(url: str, inline_message_id: str, context: 
         # Once the video is downloaded, replace the placeholder
         if os.path.exists(output_file):
             with open(output_file, 'rb') as video_file:
-                logger.info(f"Replacing video: {url}; inline_message_id={inline_message_id}")
+                file_size = os.path.getsize(output_file)
+                logger.info(f"Uploading the video {url} to the chat {MEDIA_CHAT_ID}; inline_message_id={inline_message_id}; file size={file_size} bytes")
                 msg = await retry_operation(context.bot.send_video, max_retries=2, delay=1, chat_id=MEDIA_CHAT_ID, video=video_file, caption=(metadata.title + " " + url), width=metadata.width, height=metadata.height, duration=metadata.duration, supports_streaming=True)
+
+                logger.info(f"Video uploaded. Replacing the placeholder with the video {msg.video.file_id}")
+                # sleep 200 ms
+                await asyncio.sleep(0.2)
+
                 await context.bot.edit_message_media(
                     inline_message_id=inline_message_id,
                     media=InputMediaVideo(media=msg.video.file_id, caption=(metadata.title + " " + url), width=metadata.width, height=metadata.height, duration=metadata.duration, supports_streaming=True)
