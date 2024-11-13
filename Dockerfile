@@ -40,4 +40,4 @@ RUN poetry config virtualenvs.create false && poetry install --no-interaction --
 # Copy the rest of the application code
 COPY ytdl_inline_bot/ ./
 
-ENTRYPOINT ["/app/entrypoint.sh"]
+CMD "python bot.py"
