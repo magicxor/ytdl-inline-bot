@@ -8,13 +8,13 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "^3.11"
 yt-dlp = "^2024.11.4"
-python-telegram-bot = "^21.7"
 certifi = "^2024.8.30"
 brotli = "^1.1.0"
 websockets = "^14.0"
 requests = "^2.32.3"
 curl-cffi = "^0.7.3"
 pycryptodome = "^3.21.0"
+aiogram = "^3.14.0"
 
 [build-system]
 requires = ["poetry-core"]

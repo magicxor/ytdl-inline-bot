@@ -4,8 +4,16 @@ import os
 import uuid
 import asyncio
 from datetime import datetime, timedelta
-from telegram import InlineQueryResultVideo, Update, InputMediaVideo, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, ContextTypes, InlineQueryHandler, ChosenInlineResultHandler
+
+from aiogram import Bot, Dispatcher, Router, types
+from aiogram.filters import Command
+from aiogram.types import (
+    InlineQueryResultVideo,
+    InputMediaVideo,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    FSInputFile,
+)
 from yt_dlp import YoutubeDL
 
 # Enable logging
@@ -46,11 +54,18 @@ class VideoMetadata:
         self.width = width
         self.height = height
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+# Create bot and dispatcher
+bot = Bot(token=TELEGRAM_BOT_TOKEN)
+dp = Dispatcher()
+router = Router()
+dp.include_router(router)
+
+@router.message(Command("start"))
+async def start(message: types.Message):
     """Send a message when the command /start is issued."""
-    user = update.effective_user
-    await update.message.reply_html(
-        rf"Hi {user.mention_html()}! Type a YouTube link using an inline query!"
+    user = message.from_user
+    await message.reply_html(
+        f"Hi {user.get_mention(as_html=True)}! Type a YouTube link using an inline query!"
     )
 
 def get_best_video_audio_format(url: str):
@@ -111,7 +126,7 @@ async def retry_operation(coro, max_retries=2, delay=1, *args, **kwargs):
                 logger.error(f"Operation failed after {max_retries + 1} attempts.")
                 raise e
 
-async def download_video_and_replace(url: str, inline_message_id: str, context: ContextTypes.DEFAULT_TYPE, user_id: int):
+async def download_video_and_replace(url: str, inline_message_id: str, user_id: int):
     """Downloads a video asynchronously and replaces the placeholder."""
     try:
         logger.info(f"Downloading video: {url}; inline_message_id={inline_message_id}")
@@ -122,7 +137,7 @@ async def download_video_and_replace(url: str, inline_message_id: str, context: 
             last_download_time = user_download_timestamps.get(user_id)
 
             if last_download_time and (current_time - last_download_time < timedelta(minutes=RATE_LIMIT_WINDOW_MINUTES)):
-                await context.bot.edit_message_caption(
+                await bot.edit_message_caption(
                     inline_message_id=inline_message_id,
                     caption=f"Rate limit exceeded. Please wait {RATE_LIMIT_WINDOW_MINUTES} minute(s) before requesting another download."
                 )
@@ -130,13 +145,13 @@ async def download_video_and_replace(url: str, inline_message_id: str, context: 
 
         metadata = get_best_video_audio_format(url)
         if not metadata.best_video:
-            await context.bot.edit_message_caption(
+            await bot.edit_message_caption(
                 inline_message_id=inline_message_id,
                 caption="No suitable video format found under 15 MB."
             )
             return
         if not metadata.best_audio:
-            await context.bot.edit_message_caption(
+            await bot.edit_message_caption(
                 inline_message_id=inline_message_id,
                 caption="No suitable audio format found under 8 MB."
             )
@@ -160,26 +175,12 @@ async def download_video_and_replace(url: str, inline_message_id: str, context: 
         if os.path.exists(output_file):
             with open(output_file, 'rb') as video_file:
                 file_size = os.path.getsize(output_file)
-                logger.info(f"Uploading the video {url} to the chat {MEDIA_CHAT_ID}; inline_message_id={inline_message_id}; file size={file_size} bytes")
-                msg = await retry_operation(context.bot.send_video, max_retries=2, delay=1, chat_id=MEDIA_CHAT_ID, video=video_file, caption=(metadata.title + " " + url), width=metadata.width, height=metadata.height, duration=metadata.duration, supports_streaming=True)
+
+                logger.info(f"Uploading the video {url} to the chat {MEDIA_CHAT_ID}; inline_message_id={inline_message_id}; file size={file_size} bytes; file name={output_file}")
+                msg = await retry_operation(bot.send_video, max_retries=2, delay=1, chat_id=MEDIA_CHAT_ID, video=FSInputFile(path=output_file), caption=(metadata.title + " " + url), width=metadata.width, height=metadata.height, duration=metadata.duration, supports_streaming=True)
 
                 logger.info(f"Video uploaded. Replacing the placeholder with the video {msg.video.file_id}")
-
-                # Retry logic added for edit_message_media
-                await retry_operation(
-                    context.bot.edit_message_media,
-                    max_retries=2,
-                    delay=1,
-                    inline_message_id=inline_message_id,
-                    media=InputMediaVideo(
-                        media=msg.video.file_id,
-                        caption=(metadata.title + " " + url),
-                        width=metadata.width,
-                        height=metadata.height,
-                        duration=metadata.duration,
-                        supports_streaming=True
-                    )
-                )
+                await retry_operation(bot.edit_message_media, max_retries=2, delay=1, inline_message_id=inline_message_id, media=InputMediaVideo(media=msg.video.file_id, caption=(metadata.title + " " + url), width=metadata.width, height=metadata.height, duration=metadata.duration, supports_streaming=True))
 
             # Update rate limit timestamp for non-VIP users only on successful download
             if user_id != VIP_USER_ID:
@@ -188,20 +189,25 @@ async def download_video_and_replace(url: str, inline_message_id: str, context: 
             # Optionally, clean up the downloaded file
             os.remove(output_file)
     except Exception as e:
-        logger.error(f"Error downloading video: {e}")
-        await context.bot.edit_message_media(
+        logger.error(f"Error replacing the placeholder video: {e}")
+        await bot.edit_message_media(
             inline_message_id=inline_message_id,
-            media=InputMediaVideo(media=ERR_LOADING_VIDEO_URL, caption="Failed to download the video.", width=ERR_VIDEO_WIDTH, height=ERR_VIDEO_HEIGHT, duration=ERR_VIDEO_DURATION, supports_streaming=False)
+            media=InputMediaVideo(media=ERR_LOADING_VIDEO_URL, caption="Failed to replace the placeholder video.", width=ERR_VIDEO_WIDTH, height=ERR_VIDEO_HEIGHT, duration=ERR_VIDEO_DURATION, supports_streaming=False)
         )
 
 async def async_download_video(ydl_opts, url):
     """Asynchronously downloads a video using yt-dlp."""
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, sync_download_video, ydl_opts, url)
+
+def sync_download_video(ydl_opts, url):
     with YoutubeDL(ydl_opts) as ydl:
         ydl.download([url])
 
-async def inlinequery(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+@router.inline_query()
+async def inlinequery(inline_query: types.InlineQuery):
     """Handles inline queries."""
-    user_id = update.effective_user.id
+    user_id = inline_query.from_user.id
     current_time = datetime.now()
 
     # Rate limiting for non-VIP users
@@ -211,11 +217,11 @@ async def inlinequery(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             logger.info(f"User {user_id} exceeded the rate limit.")
             return  # Early return to save resources and API quota
 
-    query: str = update.inline_query.query
+    query: str = inline_query.query
     if not query:
         return
 
-    if query.startswith("https://youtu.be/") or query.startswith("https://www.youtube.com/watch") or query.startswith("https://youtube.com/watch") or query.startswith("https://m.youtube.com/watch") or query.startswith("https://youtube.com/shorts/") or query.startswith("https://www.youtube.com/shorts/"):
+    if query.startswith(("https://youtu.be/", "https://www.youtube.com/watch", "https://youtube.com/watch", "https://m.youtube.com/watch", "https://youtube.com/shorts/", "https://www.youtube.com/shorts/")):
         # Send a placeholder with loading video
         results = [
             InlineQueryResultVideo(
@@ -228,34 +234,31 @@ async def inlinequery(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                 video_width=PH_VIDEO_WIDTH,
                 video_height=PH_VIDEO_HEIGHT,
                 video_duration=PH_VIDEO_DURATION,
-                reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("Please wait...", callback_data=str(uuid.uuid4()))]
-                ])
+                reply_markup=InlineKeyboardMarkup(
+                    inline_keyboard=[
+                        [InlineKeyboardButton(text="Please wait...", callback_data=str(uuid.uuid4()))]
+                    ]
+                )
             )
         ]
-        await update.inline_query.answer(results)
+        await inline_query.answer(results)
 
-async def chosen_inline_result(update: Update, context: ContextTypes.DEFAULT_TYPE):
+@router.chosen_inline_result()
+async def chosen_inline_result(chosen_result: types.ChosenInlineResult):
     """Handles when a user selects an inline result."""
-    user_id = update.effective_user.id
-    logger.info(f"Chosen inline result: {update.chosen_inline_result.result_id}")
-    inline_message_id = update.chosen_inline_result.inline_message_id
-    query = update.chosen_inline_result.query
-    await download_video_and_replace(query, inline_message_id, context, user_id)
+    user_id = chosen_result.from_user.id
+    logger.info(f"Chosen inline result: {chosen_result.result_id}")
+    inline_message_id = chosen_result.inline_message_id
+    query = chosen_result.query
+    await download_video_and_replace(query, inline_message_id, user_id)
 
-def main() -> None:
-    """Start the bot."""
-    application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
-
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(InlineQueryHandler(inlinequery))
-    application.add_handler(ChosenInlineResultHandler(chosen_inline_result))
-
+async def main():
     try:
-        # Run the bot until the user presses Ctrl-C
-        application.run_polling(allowed_updates=Update.ALL_TYPES)
+        await dp.start_polling(bot)
     except KeyboardInterrupt:
         print("\nBot has been stopped by the user.")
+    finally:
+        await bot.session.close()
 
-if __name__ == "__main__":
-    main()
+if __name__ == '__main__':
+    asyncio.run(main())
