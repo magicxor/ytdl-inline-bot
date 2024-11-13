@@ -3,6 +3,8 @@ import logging
 import os
 import uuid
 import asyncio
+import re
+from urllib.parse import urlparse, parse_qs
 from datetime import datetime, timedelta
 
 from aiogram import Bot, Dispatcher, Router, types
@@ -10,6 +12,7 @@ from aiogram.filters import Command
 from aiogram.types import (
     InlineQueryResultVideo,
     InputMediaVideo,
+    InputMediaPhoto,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     FSInputFile,
@@ -59,6 +62,29 @@ bot = Bot(token=TELEGRAM_BOT_TOKEN)
 dp = Dispatcher()
 router = Router()
 dp.include_router(router)
+
+def extract_youtube_video_id(url):
+    """
+    Extracts the YouTube video ID from various YouTube URL formats.
+    """
+    parsed_url = urlparse(url)
+    query_params = parse_qs(parsed_url.query)
+    if 'v' in query_params:
+        return query_params['v'][0]
+    elif parsed_url.hostname in ['youtu.be']:
+        return parsed_url.path[1:]
+    elif '/embed/' in parsed_url.path:
+        return parsed_url.path.split('/embed/')[1]
+    elif '/shorts/' in parsed_url.path:
+        return parsed_url.path.split('/shorts/')[1].split('/')[0]
+    elif '/watch/' in parsed_url.path:
+        return parsed_url.path.split('/watch/')[1]
+    else:
+        # For other cases, try to extract the 11-character video ID using regex
+        match = re.search(r'(?:v=|\/)([0-9A-Za-z_-]{11}).*', url)
+        if match:
+            return match.group(1)
+    return None
 
 @router.message(Command("start"))
 async def start(message: types.Message):
@@ -190,10 +216,24 @@ async def download_video_and_replace(url: str, inline_message_id: str, user_id: 
             os.remove(output_file)
     except Exception as e:
         logger.error(f"Error replacing the placeholder video: {e}")
-        await bot.edit_message_media(
-            inline_message_id=inline_message_id,
-            media=InputMediaVideo(media=ERR_LOADING_VIDEO_URL, caption="Failed to replace the placeholder video.", width=ERR_VIDEO_WIDTH, height=ERR_VIDEO_HEIGHT, duration=ERR_VIDEO_DURATION, supports_streaming=False)
-        )
+        # Attempt to replace placeholder video with thumbnail image
+        try:
+            video_id = extract_youtube_video_id(url)
+            if video_id:
+                thumbnail_url = f"https://img.youtube.com/vi/{video_id}/0.jpg"
+                await bot.edit_message_media(
+                    inline_message_id=inline_message_id,
+                    media=InputMediaPhoto(media=thumbnail_url, caption=f"Failed to download video.\nOriginal URL: {url}")
+                )
+            else:
+                raise ValueError("Could not extract video ID")
+        except Exception as e2:
+            logger.error(f"Error replacing with thumbnail image: {e2}")
+            # Fall back to current behavior
+            await bot.edit_message_media(
+                inline_message_id=inline_message_id,
+                media=InputMediaVideo(media=ERR_LOADING_VIDEO_URL, caption="Failed to replace the placeholder video.", width=ERR_VIDEO_WIDTH, height=ERR_VIDEO_HEIGHT, duration=ERR_VIDEO_DURATION, supports_streaming=False)
+            )
 
 async def async_download_video(ydl_opts, url):
     """Asynchronously downloads a video using yt-dlp."""
