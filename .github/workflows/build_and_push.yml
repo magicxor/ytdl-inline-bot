@@ -31,7 +31,8 @@ jobs:
         with:
           push: true
           context: .
-          no-cache: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           tags: |
             ${{ vars.DOCKER_REGISTRY }}/${{ vars.DOCKER_IMAGE }}:latest
           platforms: |
