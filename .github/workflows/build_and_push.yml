@@ -6,8 +6,14 @@ on:
       - master
 
 jobs:
+  check_types:
+    name: Check types
+    uses: ./.github/workflows/check_types.yml
+    secrets: inherit
+
   build_and_push:
     name: Build and push
+    needs: check_types
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

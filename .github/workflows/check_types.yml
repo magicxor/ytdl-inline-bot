@@ -1,0 +1,40 @@
+# documentation:
+# Environments -> Environment secrets: https://docs.github.com/en/actions/learn-github-actions/contexts#secrets-context
+# Environments -> Environment variables: https://docs.github.com/actions/learn-github-actions/contexts#vars-context
+# Secrets in reusable workflows: https://colinsalmcorner.com/consuming-environment-secrets-in-reusable-workflows/
+on:
+  workflow_call:
+    inputs:
+      environment:
+        type: string
+        description: environment to deploy to
+        required: false
+
+name: Check types (reusable workflow)
+
+jobs:
+  check_types:
+    name: Check types
+    strategy:
+      fail-fast: true
+      matrix:
+        python-version: ["3.11"]
+        poetry-version: ["latest"]
+        os: [ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Run image
+      uses: abatilo/actions-poetry@v3
+      with:
+        poetry-version: ${{ matrix.poetry-version }}
+
+    - name: Check types with mypy
+      run: |
+        pip install mypy
+        mypy --strict --ignore-missing-imports ./ytdl_inline_bot/bot.py
