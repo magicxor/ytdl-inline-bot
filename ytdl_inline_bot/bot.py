@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import logging
 import os
+from typing import TypeAlias, Union
 import uuid
 import asyncio
 import re
@@ -10,7 +11,26 @@ from datetime import datetime, timedelta
 from aiogram import Bot, Dispatcher, Router, types
 from aiogram.filters import Command
 from aiogram.types import (
+    InlineQueryResultCachedAudio,
+    InlineQueryResultCachedDocument,
+    InlineQueryResultCachedGif,
+    InlineQueryResultCachedMpeg4Gif,
+    InlineQueryResultCachedPhoto,
+    InlineQueryResultCachedSticker,
+    InlineQueryResultCachedVideo,
+    InlineQueryResultCachedVoice,
+    InlineQueryResultArticle,
+    InlineQueryResultAudio,
+    InlineQueryResultContact,
+    InlineQueryResultGame,
+    InlineQueryResultDocument,
+    InlineQueryResultGif,
+    InlineQueryResultLocation,
+    InlineQueryResultMpeg4Gif,
+    InlineQueryResultPhoto,
+    InlineQueryResultVenue,
     InlineQueryResultVideo,
+    InlineQueryResultVoice,
     InputMediaVideo,
     InputMediaPhoto,
     InlineKeyboardButton,
@@ -47,7 +67,7 @@ MEDIA_CHAT_ID = int(os.environ.get("MEDIA_CHAT_ID", -1002389753204))  # chat ID 
 RATE_LIMIT_WINDOW_MINUTES = int(os.environ.get("RATE_LIMIT_WINDOW_MINUTES", 1))  # Rate limit window in minutes
 
 # Dictionary to track user download attempts for rate limiting
-user_download_timestamps = {}
+user_download_timestamps: dict[int, datetime] = {}
 
 class VideoMetadata:
     def __init__(self, best_video, best_audio, title, duration, width, height):
@@ -57,6 +77,31 @@ class VideoMetadata:
         self.duration = duration
         self.width = width
         self.height = height
+
+InlineQueryResultType: TypeAlias = list[
+            Union[
+                InlineQueryResultCachedAudio,
+                InlineQueryResultCachedDocument,
+                InlineQueryResultCachedGif,
+                InlineQueryResultCachedMpeg4Gif,
+                InlineQueryResultCachedPhoto,
+                InlineQueryResultCachedSticker,
+                InlineQueryResultCachedVideo,
+                InlineQueryResultCachedVoice,
+                InlineQueryResultArticle,
+                InlineQueryResultAudio,
+                InlineQueryResultContact,
+                InlineQueryResultGame,
+                InlineQueryResultDocument,
+                InlineQueryResultGif,
+                InlineQueryResultLocation,
+                InlineQueryResultMpeg4Gif,
+                InlineQueryResultPhoto,
+                InlineQueryResultVenue,
+                InlineQueryResultVideo,
+                InlineQueryResultVoice,
+            ]
+        ]
 
 # Create bot and dispatcher
 bot = Bot(token=TELEGRAM_BOT_TOKEN)
@@ -91,9 +136,8 @@ def extract_youtube_video_id(url):
 async def start(message: types.Message):
     """Send a message when the command /start is issued."""
     user = message.from_user
-    await message.reply_html(
-        f"Hi {user.get_mention(as_html=True)}! Type a YouTube link using an inline query!"
-    )
+    if user is not None:
+        await message.reply(f"Hi {user.mention_html()}! Type a YouTube link using an inline query!", parse_mode="HTML")
 
 def get_best_video_audio_format(url: str):
     """Gets the best video and audio formats that meet the specified constraints and returns a VideoMetadata object."""
@@ -269,7 +313,7 @@ async def inlinequery(inline_query: types.InlineQuery):
 
     if query.startswith(("https://youtu.be/", "https://www.youtube.com/watch", "https://youtube.com/watch", "https://m.youtube.com/watch", "https://youtube.com/shorts/", "https://www.youtube.com/shorts/")):
         # Send a placeholder with loading video
-        results = [
+        results: InlineQueryResultType = [
             InlineQueryResultVideo(
                 id=str(uuid.uuid4()),
                 video_url=PH_LOADING_VIDEO_URL,
@@ -296,7 +340,8 @@ async def chosen_inline_result(chosen_result: types.ChosenInlineResult):
     logger.info(f"Chosen inline result: {chosen_result.result_id}")
     inline_message_id = chosen_result.inline_message_id
     query = chosen_result.query
-    await download_video_and_replace(query, inline_message_id, user_id)
+    if inline_message_id is not None:
+        await download_video_and_replace(query, inline_message_id, user_id)
 
 async def main():
     try:

@@ -22,3 +22,6 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
 ytdlbot = "ytdl_inline_bot.bot:main"
+
+[tool.mypy-yt_dlp]
+ignore_missing_imports = true
