@@ -41,4 +41,4 @@ jobs:
 
     - name: Check types with mypy
       run: |
-        mypy ./ytdl_inline_bot/bot.py
+        mypy --strict ./ytdl_inline_bot/bot.py
