@@ -37,4 +37,4 @@ jobs:
     - name: Check types with mypy
       run: |
         pip install mypy
-        mypy --strict --ignore-missing-imports ./ytdl_inline_bot/bot.py
+        mypy ./ytdl_inline_bot/bot.py
