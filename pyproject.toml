@@ -16,6 +16,9 @@ curl-cffi = "^0.7.3"
 pycryptodome = "^3.21.0"
 aiogram = "^3.14.0"
 
+[tool.poetry.group.dev.dependencies]
+mypy = "^1.13.0"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
@@ -23,5 +26,6 @@ build-backend = "poetry.core.masonry.api"
 [tool.poetry.scripts]
 ytdlbot = "ytdl_inline_bot.bot:main"
 
-[tool.mypy-yt_dlp]
+[[tool.mypy.overrides]]
+module = "yt_dlp.*"
 ignore_missing_imports = true
