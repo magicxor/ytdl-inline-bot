@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 # Constants loaded from environment variables with fallback values
 MAX_VIDEO_SIZE = int(os.environ.get("MAX_VIDEO_SIZE", 15728640))  # 15 MB in bytes
 MAX_AUDIO_SIZE = int(os.environ.get("MAX_AUDIO_SIZE", 8388608))   # 8 MB in bytes
+MAX_TG_FILE_SIZE = int(os.environ.get("MAX_TG_FILE_SIZE", 52428800))  # 50 MB in bytes
 VIP_USER_ID = int(os.environ.get("VIP_USER_ID", 282614687))  # User ID for VIP access
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "my_token")
 ERR_LOADING_VIDEO_URL = os.environ.get("ERR_LOADING_VIDEO_URL", "https://magicxor.github.io/static/ytdl-inline-bot/error_v1.mp4")
@@ -121,7 +122,7 @@ def get_best_video_audio_format(url: str):
         video_formats.sort(key=lambda x: x['filesize'], reverse=True)
         best_video = next((f for f in video_formats if f['filesize'] <= MAX_VIDEO_SIZE), None)
         if not best_video and video_formats:
-            # Choose the smallest video if none fit within the 15 MB constraint
+            # Choose the smallest video if none fit within the constraint
             best_video = min(video_formats, key=lambda x: x['filesize'])
 
         # Filter audio formats based on criteria
@@ -132,7 +133,7 @@ def get_best_video_audio_format(url: str):
         audio_formats.sort(key=lambda x: x['filesize'], reverse=True)
         best_audio = next((f for f in audio_formats if f['filesize'] <= MAX_AUDIO_SIZE), None)
         if not best_audio and audio_formats:
-            # Choose the smallest audio if none fit within the 8 MB constraint
+            # Choose the smallest audio if none fit within the constraint
             best_audio = min(audio_formats, key=lambda x: x['filesize'])
 
         logger.info(f"Best video format: {best_video}; \n\nBest audio format: {best_audio}")
@@ -167,21 +168,26 @@ async def download_video_and_replace(url: str, inline_message_id: str, user_id: 
                     inline_message_id=inline_message_id,
                     caption=f"Rate limit exceeded. Please wait {RATE_LIMIT_WINDOW_MINUTES} minute(s) before requesting another download."
                 )
-                return
+                raise Exception("Rate limit exceeded.")
 
         metadata = get_best_video_audio_format(url)
         if not metadata.best_video:
             await bot.edit_message_caption(
                 inline_message_id=inline_message_id,
-                caption="No suitable video format found under 15 MB."
+                caption=f"No suitable video format found under {MAX_VIDEO_SIZE // (1024 * 1024)} MB."
             )
-            return
+            raise Exception(f"No suitable video format found under {MAX_VIDEO_SIZE} bytes.")
         if not metadata.best_audio:
             await bot.edit_message_caption(
                 inline_message_id=inline_message_id,
-                caption="No suitable audio format found under 8 MB."
+                caption=f"No suitable audio format found under {MAX_AUDIO_SIZE // (1024 * 1024)} MB."
             )
-            return
+            raise Exception(f"No suitable audio format found under {MAX_AUDIO_SIZE} bytes.")
+
+        # Check if total size exceeds MAX_TG_FILE_SIZE
+        total_size = metadata.best_video['filesize'] + metadata.best_audio['filesize']
+        if total_size > MAX_TG_FILE_SIZE:
+            raise Exception(f"Combined video and audio filesize ({total_size} bytes) exceeds {MAX_TG_FILE_SIZE // (1024 * 1024)} MB limit.")
 
         # Generate a unique filename for the output
         output_file = f"download_{uuid.uuid4().hex}.mp4"
