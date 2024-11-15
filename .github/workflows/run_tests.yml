@@ -1,0 +1,11 @@
+name: Run tests
+
+on:
+  pull_request:
+    types: [opened, reopened]
+
+jobs:
+  check_types:
+    name: Check types
+    uses: ./.github/workflows/check_types.yml
+    secrets: inherit
