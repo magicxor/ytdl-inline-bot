@@ -165,10 +165,17 @@ def get_best_video_audio_format(url: str) -> VideoMetadata:
             if f.get('vcodec') != 'none' and f.get('protocol') == 'https' and f.get('filesize') is not None
         ]
         video_formats.sort(key=lambda x: x['filesize'], reverse=True)
-        best_video = next((f for f in video_formats if f['filesize'] <= MAX_VIDEO_SIZE), None)
+
+        # First, try to select the largest file with 'avc1' in 'vcodec' that fits within MAX_VIDEO_SIZE
+        best_video = next(
+            (f for f in video_formats if f['filesize'] <= MAX_VIDEO_SIZE and 'avc1' in f.get('vcodec', '')), None
+        )
         if not best_video and video_formats:
-            # Choose the smallest video if none fit within the constraint
-            best_video = min(video_formats, key=lambda x: x['filesize'])
+            # If not found, revert to the original behavior
+            best_video = next((f for f in video_formats if f['filesize'] <= MAX_VIDEO_SIZE), None)
+            if not best_video and video_formats:
+                # Choose the smallest video if none fit within the constraint
+                best_video = min(video_formats, key=lambda x: x['filesize'])
 
         # Filter audio formats based on criteria
         audio_formats = [
