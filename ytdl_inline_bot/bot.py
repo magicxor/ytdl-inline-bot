@@ -291,13 +291,6 @@ async def download_video_and_replace(url: str, inline_message_id: str, user_id: 
                     raise ValueError("Failed to retrieve video from the sent message.")
 
                 logger.info(f"Video uploaded. Replacing the placeholder with the video {msg.video.file_id}")
-
-                video_id = extract_youtube_video_id(url)
-                if video_id:
-                    thumbnail_url = f"https://img.youtube.com/vi/{video_id}/0.jpg"
-                else:
-                    thumbnail_url = None
-
                 await retry_operation(
                     bot.edit_message_media,
                     max_retries=2,
@@ -306,7 +299,6 @@ async def download_video_and_replace(url: str, inline_message_id: str, user_id: 
                     media=InputMediaVideo(
                         media=msg.video.file_id,
                         caption=(metadata.title + " " + url),
-                        thumbnail_url=thumbnail_url,
                         width=metadata.width,
                         height=metadata.height,
                         duration=metadata.duration,
