@@ -39,7 +39,6 @@ from aiogram.types import (
     FSInputFile,
 )
 from yt_dlp import YoutubeDL
-import aiohttp
 
 # Enable logging
 logging.basicConfig(
@@ -56,7 +55,6 @@ MAX_TG_FILE_SIZE = int(os.environ.get("MAX_TG_FILE_SIZE", 52428800))  # 50 MB in
 VIP_USER_ID = int(os.environ.get("VIP_USER_ID", 282614687))  # User ID for VIP access
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "my_token")
 ERR_LOADING_VIDEO_URL = os.environ.get("ERR_LOADING_VIDEO_URL", "https://magicxor.github.io/static/ytdl-inline-bot/error_v1.mp4")
-ERR_THUMBNAIL_URL = os.environ.get("ERR_THUMBNAIL_URL", "https://magicxor.github.io/static/ytdl-inline-bot/error_v1.jpg")
 ERR_VIDEO_WIDTH = int(os.environ.get("ERR_VIDEO_WIDTH", 640))
 ERR_VIDEO_HEIGHT = int(os.environ.get("ERR_VIDEO_HEIGHT", 480))
 ERR_VIDEO_DURATION = int(os.environ.get("ERR_VIDEO_DURATION", 5))  # seconds
@@ -133,23 +131,6 @@ def extract_youtube_video_id(url: str) -> Optional[str]:
         if match:
             return match.group(1)
     return None
-
-def get_youtube_thumbnail_url(video_id: str, size: Optional[str] = None) -> str:
-    """
-    Returns the URL for the YouTube video thumbnail image.
-    """
-    if size == 'maxresdefault':
-        return f"https://img.youtube.com/vi/{video_id}/maxresdefault.jpg"
-    elif size == 'hqdefault':
-        return f"https://img.youtube.com/vi/{video_id}/hqdefault.jpg"
-    elif size == 'sddefault':
-        return f"https://img.youtube.com/vi/{video_id}/sddefault.jpg"
-    elif size == 'mqdefault':
-        return f"https://img.youtube.com/vi/{video_id}/mqdefault.jpg"
-    elif size == 'default':
-        return f"https://img.youtube.com/vi/{video_id}/default.jpg"
-    else:
-        return f"https://img.youtube.com/vi/{video_id}/0.jpg"
 
 @router.message(Command("start"))
 async def start(message: types.Message) -> None:
@@ -291,7 +272,7 @@ async def download_video_and_replace(url: str, inline_message_id: str, user_id: 
                 file_size = os.path.getsize(output_file)
 
                 logger.info(f"Uploading the video {url} to the chat {MEDIA_CHAT_ID}; inline_message_id={inline_message_id}; file size={file_size} bytes; file name={output_file}")
-                video_msg = await retry_operation(
+                msg = await retry_operation(
                     bot.send_video,
                     max_retries=2,
                     delay=1,
@@ -304,44 +285,25 @@ async def download_video_and_replace(url: str, inline_message_id: str, user_id: 
                     supports_streaming=True
                 )
 
-                # Ensure that video_msg.video is not None
-                if video_msg.video is None:
+                # Ensure that msg.video is not None
+                if msg.video is None:
                     raise ValueError("Failed to retrieve video from the sent message.")
 
-                logger.info(f"Video uploaded. Preparing thumbnail for the video.")
-
-                thumbnail_filename = None  # Initialize thumbnail filename
-                try:
-                    video_id = extract_youtube_video_id(url)
-                    if video_id:
-                        thumbnail_url = get_youtube_thumbnail_url(video_id, 'mqdefault')
-                        thumbnail_filename = await download_file(thumbnail_url)  # Download the thumbnail
-                        thumbnail_file = FSInputFile(thumbnail_filename)
-                    else:
-                        thumbnail_url = None
-                        thumbnail_file = None
-
-                    logger.info(f"Replacing the placeholder with the video {video_msg.video.file_id} and thumbnail {thumbnail_url}")
-
-                    await retry_operation(
-                        bot.edit_message_media,
-                        max_retries=2,
-                        delay=1,
-                        inline_message_id=inline_message_id,
-                        media=InputMediaVideo(
-                            media=video_msg.video.file_id,
-                            caption=(metadata.title + " " + url),
-                            thumbnail=thumbnail_file,
-                            width=metadata.width,
-                            height=metadata.height,
-                            duration=metadata.duration,
-                            supports_streaming=True
-                        )
+                logger.info(f"Video uploaded. Replacing the placeholder with the video {msg.video.file_id}")
+                await retry_operation(
+                    bot.edit_message_media,
+                    max_retries=2,
+                    delay=1,
+                    inline_message_id=inline_message_id,
+                    media=InputMediaVideo(
+                        media=msg.video.file_id,
+                        caption=(metadata.title + " " + url),
+                        width=metadata.width,
+                        height=metadata.height,
+                        duration=metadata.duration,
+                        supports_streaming=True
                     )
-                finally:
-                    # Delete the thumbnail file from disk
-                    if thumbnail_filename and os.path.exists(thumbnail_filename):
-                        os.remove(thumbnail_filename)
+                )
 
             # Update rate limit timestamp for non-VIP users only on successful download
             if user_id != VIP_USER_ID:
@@ -355,7 +317,7 @@ async def download_video_and_replace(url: str, inline_message_id: str, user_id: 
         try:
             video_id = extract_youtube_video_id(url)
             if video_id:
-                thumbnail_url = get_youtube_thumbnail_url(video_id)
+                thumbnail_url = f"https://img.youtube.com/vi/{video_id}/0.jpg"
                 await bot.edit_message_media(
                     inline_message_id=inline_message_id,
                     media=InputMediaPhoto(media=thumbnail_url, caption=f"Failed to download video.\nOriginal URL: {url}")
@@ -369,25 +331,6 @@ async def download_video_and_replace(url: str, inline_message_id: str, user_id: 
                 inline_message_id=inline_message_id,
                 media=InputMediaVideo(media=ERR_LOADING_VIDEO_URL, caption="Failed to replace the placeholder video.", width=ERR_VIDEO_WIDTH, height=ERR_VIDEO_HEIGHT, duration=ERR_VIDEO_DURATION, supports_streaming=False)
             )
-
-async def download_file(url: str) -> str:
-    """
-    Downloads a file from a URL to a local file with a random filename.
-    Returns the filename.
-    """
-    filename = f"thumb_{uuid.uuid4().hex}.jpg"  # Added .jpg extension
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url) as response:
-            if response.status == 200:
-                with open(filename, 'wb') as f:
-                    while True:
-                        chunk = await response.content.read(1024)
-                        if not chunk:
-                            break
-                        f.write(chunk)
-            else:
-                raise Exception(f"Failed to download file from {url}, status code {response.status}")
-    return filename
 
 async def async_download_video(ydl_opts: Dict[str, Any], url: str) -> None:
     """Asynchronously downloads a video using yt-dlp."""
