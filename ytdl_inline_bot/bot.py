@@ -36,7 +36,7 @@ from aiogram.types import (
     InputMediaPhoto,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
-    FSInputFile,
+    FSInputFile, URLInputFile,
 )
 from yt_dlp import YoutubeDL
 
@@ -290,13 +290,17 @@ async def download_video_and_replace(url: str, inline_message_id: str, user_id: 
                 if msg.video is None:
                     raise ValueError("Failed to retrieve video from the sent message.")
 
-                logger.info(f"Video uploaded. Replacing the placeholder with the video {msg.video.file_id}")
+                logger.info(f"Video uploaded. Preparing thumbnail for the video.")
 
                 video_id = extract_youtube_video_id(url)
                 if video_id:
                     thumbnail_url = f"https://img.youtube.com/vi/{video_id}/0.jpg"
+                    thumbnail_file = URLInputFile(url=thumbnail_url)
                 else:
                     thumbnail_url = None
+                    thumbnail_file = None
+
+                logger.info(f"Replacing the placeholder with the video {msg.video.file_id} and thumbnail {thumbnail_url}")
 
                 await retry_operation(
                     bot.edit_message_media,
@@ -306,7 +310,7 @@ async def download_video_and_replace(url: str, inline_message_id: str, user_id: 
                     media=InputMediaVideo(
                         media=msg.video.file_id,
                         caption=(metadata.title + " " + url),
-                        thumbnail_url=thumbnail_url,
+                        thumbnail=thumbnail_file,
                         width=metadata.width,
                         height=metadata.height,
                         duration=metadata.duration,
