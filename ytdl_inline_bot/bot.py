@@ -133,6 +133,23 @@ def extract_youtube_video_id(url: str) -> Optional[str]:
             return match.group(1)
     return None
 
+def get_youtube_thumbnail_url(video_id: str, size: Optional[str] = None) -> str:
+    """
+    Returns the URL for the YouTube video thumbnail image.
+    """
+    if size == 'maxresdefault':
+        return f"https://img.youtube.com/vi/{video_id}/maxresdefault.jpg"
+    elif size == 'hqdefault':
+        return f"https://img.youtube.com/vi/{video_id}/hqdefault.jpg"
+    elif size == 'sddefault':
+        return f"https://img.youtube.com/vi/{video_id}/sddefault.jpg"
+    elif size == 'mqdefault':
+        return f"https://img.youtube.com/vi/{video_id}/mqdefault.jpg"
+    elif size == 'default':
+        return f"https://img.youtube.com/vi/{video_id}/default.jpg"
+    else:
+        return f"https://img.youtube.com/vi/{video_id}/0.jpg"
+
 @router.message(Command("start"))
 async def start(message: types.Message) -> None:
     """Send a message when the command /start is issued."""
@@ -273,7 +290,7 @@ async def download_video_and_replace(url: str, inline_message_id: str, user_id: 
                 file_size = os.path.getsize(output_file)
 
                 logger.info(f"Uploading the video {url} to the chat {MEDIA_CHAT_ID}; inline_message_id={inline_message_id}; file size={file_size} bytes; file name={output_file}")
-                msg = await retry_operation(
+                video_msg = await retry_operation(
                     bot.send_video,
                     max_retries=2,
                     delay=1,
@@ -286,21 +303,21 @@ async def download_video_and_replace(url: str, inline_message_id: str, user_id: 
                     supports_streaming=True
                 )
 
-                # Ensure that msg.video is not None
-                if msg.video is None:
+                # Ensure that video_msg.video is not None
+                if video_msg.video is None:
                     raise ValueError("Failed to retrieve video from the sent message.")
 
                 logger.info(f"Video uploaded. Preparing thumbnail for the video.")
 
                 video_id = extract_youtube_video_id(url)
                 if video_id:
-                    thumbnail_url = f"https://img.youtube.com/vi/{video_id}/0.jpg"
+                    thumbnail_url = get_youtube_thumbnail_url(video_id, 'mqdefault')
                     thumbnail_file = URLInputFile(url=thumbnail_url)
                 else:
                     thumbnail_url = None
                     thumbnail_file = None
 
-                logger.info(f"Replacing the placeholder with the video {msg.video.file_id} and thumbnail {thumbnail_url}")
+                logger.info(f"Replacing the placeholder with the video {video_msg.video.file_id} and thumbnail {thumbnail_url}")
 
                 await retry_operation(
                     bot.edit_message_media,
@@ -308,7 +325,7 @@ async def download_video_and_replace(url: str, inline_message_id: str, user_id: 
                     delay=1,
                     inline_message_id=inline_message_id,
                     media=InputMediaVideo(
-                        media=msg.video.file_id,
+                        media=video_msg.video.file_id,
                         caption=(metadata.title + " " + url),
                         thumbnail=thumbnail_file,
                         width=metadata.width,
@@ -330,7 +347,7 @@ async def download_video_and_replace(url: str, inline_message_id: str, user_id: 
         try:
             video_id = extract_youtube_video_id(url)
             if video_id:
-                thumbnail_url = f"https://img.youtube.com/vi/{video_id}/0.jpg"
+                thumbnail_url = get_youtube_thumbnail_url(video_id)
                 await bot.edit_message_media(
                     inline_message_id=inline_message_id,
                     media=InputMediaPhoto(media=thumbnail_url, caption=f"Failed to download video.\nOriginal URL: {url}")
