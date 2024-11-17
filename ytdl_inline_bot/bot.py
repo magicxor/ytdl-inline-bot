@@ -36,10 +36,9 @@ from aiogram.types import (
     InputMediaPhoto,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
-    FSInputFile,
+    FSInputFile, URLInputFile,
 )
 from yt_dlp import YoutubeDL
-import aiohttp
 
 # Enable logging
 logging.basicConfig(
@@ -310,38 +309,31 @@ async def download_video_and_replace(url: str, inline_message_id: str, user_id: 
 
                 logger.info(f"Video uploaded. Preparing thumbnail for the video.")
 
-                thumbnail_filename = None  # Initialize thumbnail filename
-                try:
-                    video_id = extract_youtube_video_id(url)
-                    if video_id:
-                        thumbnail_url = get_youtube_thumbnail_url(video_id, 'mqdefault')
-                        thumbnail_filename = await download_file(thumbnail_url)  # Download the thumbnail
-                        thumbnail_file = FSInputFile(thumbnail_filename)
-                    else:
-                        thumbnail_url = None
-                        thumbnail_file = None
+                video_id = extract_youtube_video_id(url)
+                if video_id:
+                    thumbnail_url = get_youtube_thumbnail_url(video_id, 'mqdefault')
+                    thumbnail_file = URLInputFile(url=thumbnail_url)
+                else:
+                    thumbnail_url = None
+                    thumbnail_file = None
 
-                    logger.info(f"Replacing the placeholder with the video {video_msg.video.file_id} and thumbnail {thumbnail_url}")
+                logger.info(f"Replacing the placeholder with the video {video_msg.video.file_id} and thumbnail {thumbnail_url}")
 
-                    await retry_operation(
-                        bot.edit_message_media,
-                        max_retries=2,
-                        delay=1,
-                        inline_message_id=inline_message_id,
-                        media=InputMediaVideo(
-                            media=video_msg.video.file_id,
-                            caption=(metadata.title + " " + url),
-                            thumbnail=thumbnail_file,
-                            width=metadata.width,
-                            height=metadata.height,
-                            duration=metadata.duration,
-                            supports_streaming=True
-                        )
+                await retry_operation(
+                    bot.edit_message_media,
+                    max_retries=2,
+                    delay=1,
+                    inline_message_id=inline_message_id,
+                    media=InputMediaVideo(
+                        media=video_msg.video.file_id,
+                        caption=(metadata.title + " " + url),
+                        thumbnail=thumbnail_file,
+                        width=metadata.width,
+                        height=metadata.height,
+                        duration=metadata.duration,
+                        supports_streaming=True
                     )
-                finally:
-                    # Delete the thumbnail file from disk
-                    if thumbnail_filename and os.path.exists(thumbnail_filename):
-                        os.remove(thumbnail_filename)
+                )
 
             # Update rate limit timestamp for non-VIP users only on successful download
             if user_id != VIP_USER_ID:
@@ -369,25 +361,6 @@ async def download_video_and_replace(url: str, inline_message_id: str, user_id: 
                 inline_message_id=inline_message_id,
                 media=InputMediaVideo(media=ERR_LOADING_VIDEO_URL, caption="Failed to replace the placeholder video.", width=ERR_VIDEO_WIDTH, height=ERR_VIDEO_HEIGHT, duration=ERR_VIDEO_DURATION, supports_streaming=False)
             )
-
-async def download_file(url: str) -> str:
-    """
-    Downloads a file from a URL to a local file with a random filename.
-    Returns the filename.
-    """
-    filename = f"thumb_{uuid.uuid4().hex}.jpg"  # Added .jpg extension
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url) as response:
-            if response.status == 200:
-                with open(filename, 'wb') as f:
-                    while True:
-                        chunk = await response.content.read(1024)
-                        if not chunk:
-                            break
-                        f.write(chunk)
-            else:
-                raise Exception(f"Failed to download file from {url}, status code {response.status}")
-    return filename
 
 async def async_download_video(ydl_opts: Dict[str, Any], url: str) -> None:
     """Asynchronously downloads a video using yt-dlp."""
