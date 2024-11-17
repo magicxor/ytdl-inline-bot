@@ -55,7 +55,6 @@ MAX_TG_FILE_SIZE = int(os.environ.get("MAX_TG_FILE_SIZE", 52428800))  # 50 MB in
 VIP_USER_ID = int(os.environ.get("VIP_USER_ID", 282614687))  # User ID for VIP access
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "my_token")
 ERR_LOADING_VIDEO_URL = os.environ.get("ERR_LOADING_VIDEO_URL", "https://magicxor.github.io/static/ytdl-inline-bot/error_v1.mp4")
-ERR_THUMBNAIL_URL = os.environ.get("ERR_THUMBNAIL_URL", "https://magicxor.github.io/static/ytdl-inline-bot/error_v1.jpg")
 ERR_VIDEO_WIDTH = int(os.environ.get("ERR_VIDEO_WIDTH", 640))
 ERR_VIDEO_HEIGHT = int(os.environ.get("ERR_VIDEO_HEIGHT", 480))
 ERR_VIDEO_DURATION = int(os.environ.get("ERR_VIDEO_DURATION", 5))  # seconds
