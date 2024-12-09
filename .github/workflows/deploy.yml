@@ -1,0 +1,31 @@
+# documentation:
+# Environments -> Environment secrets: https://docs.github.com/en/actions/learn-github-actions/contexts#secrets-context
+# Environments -> Environment variables: https://docs.github.com/actions/learn-github-actions/contexts#vars-context
+# Secrets in reusable workflows: https://colinsalmcorner.com/consuming-environment-secrets-in-reusable-workflows/
+on:
+  workflow_call:
+    inputs:
+      environment:
+        type: string
+        description: environment to deploy to
+        required: false
+
+name: Deploy (reusable workflow)
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: executing remote ssh commands using password
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            docker pull ${{ vars.DOCKER_REGISTRY }}/${{ vars.DOCKER_IMAGE }}:latest
+            docker stop youtube_telegram_inline_bot
+            docker rm youtube_telegram_inline_bot
+            docker run -i -t -d --restart=always --name=youtube_telegram_inline_bot -e TELEGRAM_BOT_TOKEN='${{ secrets.TELEGRAM_BOT_TOKEN }}' ${{ vars.DOCKER_REGISTRY }}/${{ vars.DOCKER_IMAGE }}:latest
