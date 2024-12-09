@@ -1,4 +1,4 @@
-name: Run tests
+name: pull request - check types
 
 on:
   pull_request:

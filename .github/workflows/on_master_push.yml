@@ -1,0 +1,24 @@
+name: master branch - check types, build, push
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  check_types:
+    name: Check types
+    uses: ./.github/workflows/check_types.yml
+    secrets: inherit
+
+  build_and_push:
+    name: Build and push
+    needs: check_types
+    uses: ./.github/workflows/build_and_push.yml
+    secrets: inherit
+
+  deploy:
+    name: Deploy
+    needs: build_and_push
+    uses: ./.github/workflows/deploy_latest.yml
+    secrets: inherit

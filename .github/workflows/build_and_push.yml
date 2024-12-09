@@ -1,19 +1,20 @@
-name: Build and push images
-
+# documentation:
+# Environments -> Environment secrets: https://docs.github.com/en/actions/learn-github-actions/contexts#secrets-context
+# Environments -> Environment variables: https://docs.github.com/actions/learn-github-actions/contexts#vars-context
+# Secrets in reusable workflows: https://colinsalmcorner.com/consuming-environment-secrets-in-reusable-workflows/
 on:
-  push:
-    branches:
-      - master
+  workflow_call:
+    inputs:
+      environment:
+        type: string
+        description: environment to deploy to
+        required: false
+
+name: Build and push (reusable workflow)
 
 jobs:
-  check_types:
-    name: Check types
-    uses: ./.github/workflows/check_types.yml
-    secrets: inherit
-
   build_and_push:
     name: Build and push
-    needs: check_types
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
