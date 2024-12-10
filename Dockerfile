@@ -30,9 +30,7 @@ RUN curl -sSL https://install.python-poetry.org | python3 - && \
 
 WORKDIR /app
 
-COPY entrypoint.sh pyproject.toml poetry.lock* ./
-
-RUN chmod +x entrypoint.sh
+COPY pyproject.toml poetry.lock* ./
 
 # Install dependencies without creating a virtual environment (since we're in a Docker container)
 RUN poetry config virtualenvs.create false && poetry install --no-interaction --no-ansi
