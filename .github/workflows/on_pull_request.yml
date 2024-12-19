@@ -2,7 +2,7 @@ name: pull request - check types
 
 on:
   pull_request:
-    types: [opened, reopened]
+    types: [opened, reopened, synchronize]
 
 jobs:
   check_types:
