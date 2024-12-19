@@ -34,9 +34,10 @@ jobs:
         run: |
           poetry config virtualenvs.create false
           poetry install --no-interaction --no-ansi
+          poetry self add poetry-plugin-up
 
       - name: Update dependencies
-        run: poetry update
+        run: poetry up --latest
 
       - name: Check for changes
         id: check_changes
@@ -60,36 +61,10 @@ jobs:
 
       - name: Create Pull Request
         if: env.changes == 'true'
-        uses: peter-evans/create-pull-request@v5
+        uses: peter-evans/create-pull-request@v7
         with:
+          base: master
           branch: update-dependencies
           title: "Update dependencies"
           body: "This PR updates dependencies to their latest versions."
           draft: false
-
-  merge-pull-request:
-    name: Merge Pull Request
-    needs: update-dependencies
-    if: needs.update-dependencies.env.changes == 'true'
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Wait for PR checks
-        # Waits for all checks to pass in the created pull request
-        uses: benc-uk/workflow-dispatch@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          repo: ${{ github.repository }}
-          ref: "update-dependencies"
-
-      - name: Squash and Merge PR
-        # Automatically squash and merge the pull request
-        uses: devops-infra/action-auto-merge@v2
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          merge-method: squash
-
-      - name: Delete branch
-        # Deletes the temporary branch after the merge
-        run: |
-          git push origin --delete update-dependencies
