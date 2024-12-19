@@ -5,6 +5,7 @@ from typing import TypeAlias, Union, Optional, Dict, Any, List, TypeVar, Callabl
 import uuid
 import asyncio
 import re
+import httpx
 from urllib.parse import urlparse, parse_qs
 from datetime import datetime, timedelta
 from dataclasses import dataclass
@@ -313,14 +314,31 @@ async def download_video_and_replace(url: str, inline_message_id: str, user_id: 
             os.remove(output_file)
     except Exception as e:
         logger.error(f"Error replacing the placeholder video: {e}")
+
         # Attempt to replace placeholder video with thumbnail image
+        video_name = "Failed to download video."
+        try:
+            async with httpx.AsyncClient() as client:
+                r = await client.get(url)
+                if r.status_code == 200:
+                    html = r.text
+                    match = re.search(r'<meta name="title" content="([^"]+)"', html)
+                    if match:
+                        video_name = match.group(1)
+        except Exception as fetch_err:
+            logger.error(f"Error fetching video page or parsing title: {fetch_err}")
+
+        # Use extracted video name instead of the hardcoded message
         try:
             video_id = extract_youtube_video_id(url)
             if video_id:
                 thumbnail_url = f"https://img.youtube.com/vi/{video_id}/0.jpg"
                 await bot.edit_message_media(
                     inline_message_id=inline_message_id,
-                    media=InputMediaPhoto(media=thumbnail_url, caption=f"Failed to download video.\nOriginal URL: {url}")
+                    media=InputMediaPhoto(
+                        media=thumbnail_url,
+                        caption=f"{video_name}\n{url}"
+                    )
                 )
             else:
                 raise ValueError("Could not extract video ID")
