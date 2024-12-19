@@ -39,32 +39,11 @@ jobs:
       - name: Update dependencies
         run: poetry up --latest
 
-      - name: Check for changes
-        id: check_changes
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          if [ -n "$(git status --porcelain)" ]; then
-            git checkout -b "update-dependencies"
-            git add .
-            git commit -m "Update dependencies"
-            echo "changes=true" >> $GITHUB_ENV
-          else
-            echo "No changes detected."
-            echo "changes=false" >> $GITHUB_ENV
-          fi
-
-      - name: Push changes
-        if: env.changes == 'true'
-        run: |
-          git push --set-upstream origin update-dependencies
-
       - name: Create Pull Request
-        if: env.changes == 'true'
         uses: peter-evans/create-pull-request@v7
         with:
           base: master
-          branch: update-dependencies
+          branch: gh-action-bot/update-dependencies
           title: "Update dependencies"
           body: "This PR updates dependencies to their latest versions."
           draft: false
