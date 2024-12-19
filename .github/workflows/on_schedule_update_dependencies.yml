@@ -15,6 +15,9 @@ jobs:
         poetry-version: ["latest"]
         os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
 
