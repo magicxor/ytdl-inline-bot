@@ -18,7 +18,7 @@ aiogram = "^3.15.0"
 httpx = "^0.28.1"
 
 [tool.poetry.group.dev.dependencies]
-mypy = "^1.13.0"
+mypy = "^1.14.0"
 
 [build-system]
 requires = ["poetry-core"]
