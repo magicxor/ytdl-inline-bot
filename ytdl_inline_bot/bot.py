@@ -41,6 +41,7 @@ from aiogram.types import (
 )
 from yt_dlp import YoutubeDL
 from bs4 import BeautifulSoup
+from bs4.element import Tag
 
 # Enable logging
 logging.basicConfig(
@@ -324,7 +325,8 @@ async def download_video_and_replace(url: str, inline_message_id: str, user_id: 
                 if r.status_code == 200:
                     soup = BeautifulSoup(r.text, "html.parser")
                     title_tag = soup.find("title")
-                    if title_tag and title_tag.string:
+
+                    if isinstance(title_tag, Tag) and title_tag.string:
                         video_name = title_tag.string.strip()
         except Exception as fetch_err:
             logger.error(f"Error fetching video page or parsing title: {fetch_err}")
