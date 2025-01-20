@@ -40,6 +40,7 @@ from aiogram.types import (
     FSInputFile,
 )
 from yt_dlp import YoutubeDL
+from bs4 import BeautifulSoup
 
 # Enable logging
 logging.basicConfig(
@@ -321,10 +322,10 @@ async def download_video_and_replace(url: str, inline_message_id: str, user_id: 
             async with httpx.AsyncClient() as client:
                 r = await client.get(url)
                 if r.status_code == 200:
-                    html = r.text
-                    match = re.search(r'<meta name="title" content="([^"]+)"', html)
-                    if match:
-                        video_name = match.group(1)
+                    soup = BeautifulSoup(r.text, "html.parser")
+                    title_tag = soup.find("title")
+                    if title_tag and title_tag.string:
+                        video_name = title_tag.string.strip()
         except Exception as fetch_err:
             logger.error(f"Error fetching video page or parsing title: {fetch_err}")
 
