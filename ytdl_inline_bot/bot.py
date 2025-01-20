@@ -320,7 +320,7 @@ async def download_video_and_replace(url: str, inline_message_id: str, user_id: 
         # Attempt to replace placeholder video with thumbnail image
         video_name = "Failed to download video."
         try:
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(follow_redirects=True) as client:
                 r = await client.get(url)
                 soup = BeautifulSoup(r.text, "html.parser")
                 title_tag = soup.find("title")
