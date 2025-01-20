@@ -316,52 +316,26 @@ async def download_video_and_replace(url: str, inline_message_id: str, user_id: 
             os.remove(output_file)
     except Exception as e:
         logger.error(f"Error replacing the placeholder video: {e}")
-        logger.debug("Attempting to parse fallback thumbnail and video_name from the web page...")  # >>> LOGGING ADDED <<<
 
+        # Attempt to replace placeholder video with thumbnail image
         video_name = "Failed to download video."
         try:
             async with httpx.AsyncClient() as client:
-                logger.debug(f"Requesting URL: {url}")  # >>> LOGGING ADDED <<<
                 r = await client.get(url)
-                logger.debug(f"Response status code: {r.status_code}")  # >>> LOGGING ADDED <<<
-
                 if r.status_code == 200:
-                    # >>> LOGGING ADDED <<<
-                    logger.debug(f"Response text length: {len(r.text)} characters. Attempting to parse HTML with BeautifulSoup.")
-
                     soup = BeautifulSoup(r.text, "html.parser")
                     title_tag = soup.find("title")
 
-                    if title_tag is None:
-                        logger.debug("No <title> tag found in HTML.")  # >>> LOGGING ADDED <<<
-                    else:
-                        logger.debug(f"Found <title> tag: {title_tag}")  # >>> LOGGING ADDED <<<
-
-                    if isinstance(title_tag, Tag):
-                        logger.debug("<title> is a Tag object.")  # >>> LOGGING ADDED <<<
-                        if title_tag.string:
-                            video_name = title_tag.string.strip()
-                            logger.debug(f"Extracted title from <title>: {video_name}")  # >>> LOGGING ADDED <<<
-                        else:
-                            logger.debug("title_tag.string is empty or None.")  # >>> LOGGING ADDED <<<
-                    else:
-                        logger.debug("title_tag is not a Tag object (or None).")  # >>> LOGGING ADDED <<<
-                else:
-                    logger.debug(f"Non-200 response code: {r.status_code}")  # >>> LOGGING ADDED <<<
-
+                    if isinstance(title_tag, Tag) and title_tag.string:
+                        video_name = title_tag.string.strip()
         except Exception as fetch_err:
-            logger.error(f"Error fetching video page or parsing title with Beautiful Soup: {fetch_err}")
+            logger.error(f"Error fetching video page or parsing title: {fetch_err}")
 
-        logger.debug(f"Using video_name: {video_name}")  # >>> LOGGING ADDED <<<
-
+        # Use extracted video name instead of the hardcoded message
         try:
             video_id = extract_youtube_video_id(url)
-            logger.debug(f"Extracted video_id: {video_id}")  # >>> LOGGING ADDED <<<
-
             if video_id:
                 thumbnail_url = f"https://img.youtube.com/vi/{video_id}/0.jpg"
-                logger.debug(f"Replacing media with thumbnail: {thumbnail_url}")  # >>> LOGGING ADDED <<<
-
                 await bot.edit_message_media(
                     inline_message_id=inline_message_id,
                     media=InputMediaPhoto(
@@ -370,22 +344,13 @@ async def download_video_and_replace(url: str, inline_message_id: str, user_id: 
                     )
                 )
             else:
-                logger.debug("Could not extract video ID. Fallback to error video.")  # >>> LOGGING ADDED <<<
                 raise ValueError("Could not extract video ID")
-
         except Exception as e2:
             logger.error(f"Error replacing with thumbnail image: {e2}")
-            logger.debug("Fallback to default error video.")  # >>> LOGGING ADDED <<<
+            # Fall back to current behavior
             await bot.edit_message_media(
                 inline_message_id=inline_message_id,
-                media=InputMediaVideo(
-                    media=ERR_LOADING_VIDEO_URL,
-                    caption="Failed to replace the placeholder video.",
-                    width=ERR_VIDEO_WIDTH,
-                    height=ERR_VIDEO_HEIGHT,
-                    duration=ERR_VIDEO_DURATION,
-                    supports_streaming=False
-                )
+                media=InputMediaVideo(media=ERR_LOADING_VIDEO_URL, caption="Failed to replace the placeholder video.", width=ERR_VIDEO_WIDTH, height=ERR_VIDEO_HEIGHT, duration=ERR_VIDEO_DURATION, supports_streaming=False)
             )
 
 async def async_download_video(ydl_opts: Dict[str, Any], url: str) -> None:
