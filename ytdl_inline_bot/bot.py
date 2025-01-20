@@ -45,7 +45,7 @@ from bs4.element import Tag
 
 # Enable logging
 logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.DEBUG
 )
 logging.getLogger("httpx").setLevel(logging.WARNING)  # DO NOT MODIFY THIS LINE
 
