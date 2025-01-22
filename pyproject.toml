@@ -8,10 +8,10 @@ package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.11"
-yt-dlp = "^2025.1.12"
+yt-dlp = "^2025.1.15"
 certifi = "^2024.12.14"
 brotli = "^1.1.0"
-websockets = "^14.1"
+websockets = "^14.2"
 requests = "^2.32.3"
 curl-cffi = "^0.7.4"
 pycryptodome = "^3.21.0"
