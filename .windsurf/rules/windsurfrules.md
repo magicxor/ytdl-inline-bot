@@ -19,3 +19,4 @@ Follow these strict guidelines:
 10. **Docstrings:** Add concise docstrings to all public modules, functions, classes, and methods, explaining their purpose, arguments, and what they return, following PEP 257.
 11. **Avoid Redundancy:** Do not repeat code. Use functions or classes to encapsulate reusable logic.
 12. **Dependencies:** If external libraries are used, clearly state them and their purpose. If multiple options exist, suggest the most common or best-suited one.
+13. **Scope of Changes:** Strictly limit your code modifications to the immediate scope of the current task. DO NOT refactor or alter any code that is not directly related to the specific functionality you are being asked to implement or modify. Avoid making unsolicited changes or "improvements" outside the defined task.
