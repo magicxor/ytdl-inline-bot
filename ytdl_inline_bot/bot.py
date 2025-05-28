@@ -68,6 +68,7 @@ PH_VIDEO_HEIGHT = int(os.environ.get("PH_VIDEO_HEIGHT", 576))
 PH_VIDEO_DURATION = int(os.environ.get("PH_VIDEO_DURATION", 10))  # seconds
 MEDIA_CHAT_ID = int(os.environ.get("MEDIA_CHAT_ID", -1002389753204))  # chat ID that the bot can send media to
 RATE_LIMIT_WINDOW_MINUTES = int(os.environ.get("RATE_LIMIT_WINDOW_MINUTES", 1))  # Rate limit window in minutes
+PREFERRED_AUDIO_LANGUAGES = [lang.strip() for lang in os.environ.get("PREFERRED_AUDIO_LANGUAGES", "en-US,en,ru-RU,ru").split(',') if lang.strip()]
 
 # Dictionary to track user download attempts for rate limiting
 user_download_timestamps: Dict[int, datetime] = {}
@@ -184,7 +185,18 @@ def get_best_video_audio_format(url: str) -> VideoMetadata:
             f for f in formats
             if f.get('acodec') != 'none' and f.get('vcodec') == 'none' and f.get('protocol') == 'https' and f.get('filesize') is not None
         ]
-        audio_formats.sort(key=lambda x: x['filesize'], reverse=True)
+
+        # Custom sort key for audio formats
+        def audio_sort_key(f):
+            lang = f.get('language')
+            try:
+                lang_priority = PREFERRED_AUDIO_LANGUAGES.index(lang)
+            except ValueError:
+                lang_priority = len(PREFERRED_AUDIO_LANGUAGES)  # Lower priority for other languages
+            filesize = f.get('filesize', 0)
+            return (lang_priority, -filesize)  # Sort by lang priority (asc), then by filesize (desc)
+
+        audio_formats.sort(key=audio_sort_key)
         best_audio = next((f for f in audio_formats if f['filesize'] <= MAX_AUDIO_SIZE), None)
         if not best_audio and audio_formats:
             # Choose the smallest audio if none fit within the constraint
