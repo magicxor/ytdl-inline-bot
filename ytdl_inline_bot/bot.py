@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import logging
 import os
-from typing import TypeAlias, Union, Optional, Dict, Any, List, TypeVar, Callable, Awaitable
+from typing import TypeAlias, Union, Optional, Dict, Any, List, TypeVar, Callable, Awaitable, Tuple
 import uuid
 import asyncio
 import re
@@ -68,6 +68,7 @@ PH_VIDEO_HEIGHT = int(os.environ.get("PH_VIDEO_HEIGHT", 576))
 PH_VIDEO_DURATION = int(os.environ.get("PH_VIDEO_DURATION", 10))  # seconds
 MEDIA_CHAT_ID = int(os.environ.get("MEDIA_CHAT_ID", -1002389753204))  # chat ID that the bot can send media to
 RATE_LIMIT_WINDOW_MINUTES = int(os.environ.get("RATE_LIMIT_WINDOW_MINUTES", 1))  # Rate limit window in minutes
+PREFERRED_AUDIO_LANGUAGES = [lang.strip() for lang in os.environ.get("PREFERRED_AUDIO_LANGUAGES", "en-US,en,ru-RU,ru").split(',') if lang.strip()]
 
 # Dictionary to track user download attempts for rate limiting
 user_download_timestamps: Dict[int, datetime] = {}
@@ -184,7 +185,22 @@ def get_best_video_audio_format(url: str) -> VideoMetadata:
             f for f in formats
             if f.get('acodec') != 'none' and f.get('vcodec') == 'none' and f.get('protocol') == 'https' and f.get('filesize') is not None
         ]
-        audio_formats.sort(key=lambda x: x['filesize'], reverse=True)
+
+        # Custom sort key for audio formats
+        def audio_sort_key(f: Dict[str, Any]) -> Tuple[int, int]:
+            lang_value = f.get('language')
+            if isinstance(lang_value, str):
+                try:
+                    lang_priority = PREFERRED_AUDIO_LANGUAGES.index(lang_value)
+                except ValueError:
+                    lang_priority = len(PREFERRED_AUDIO_LANGUAGES)  # Lower priority for other languages
+            else:
+                lang_priority = len(PREFERRED_AUDIO_LANGUAGES) # lang is None or not a string
+
+            filesize = f.get('filesize', 0)
+            return (lang_priority, -filesize)  # Sort by lang priority (asc), then by filesize (desc)
+
+        audio_formats.sort(key=audio_sort_key)
         best_audio = next((f for f in audio_formats if f['filesize'] <= MAX_AUDIO_SIZE), None)
         if not best_audio and audio_formats:
             # Choose the smallest audio if none fit within the constraint
@@ -267,7 +283,7 @@ async def download_video_and_replace(url: str, inline_message_id: str, user_id: 
         }
 
         # Downloading the video and audio and merging with retry logic
-        await retry_operation(async_download_video, max_retries=2, delay=1, ydl_opts=ydl_opts, url=url)
+        await retry_operation(async_download_video, max_retries=2, delay=1, ydl_opts=ydl_opts, url=url, timeout=60.0)
 
         # Once the video is downloaded, replace the placeholder
         if os.path.exists(output_file):
@@ -351,10 +367,18 @@ async def download_video_and_replace(url: str, inline_message_id: str, user_id: 
                 media=InputMediaVideo(media=ERR_LOADING_VIDEO_URL, caption="Failed to replace the placeholder video.", width=ERR_VIDEO_WIDTH, height=ERR_VIDEO_HEIGHT, duration=ERR_VIDEO_DURATION, supports_streaming=False)
             )
 
-async def async_download_video(ydl_opts: Dict[str, Any], url: str) -> None:
+async def async_download_video(ydl_opts: Dict[str, Any], url: str, timeout: float = 60.0) -> None:
     """Asynchronously downloads a video using yt-dlp."""
     loop = asyncio.get_event_loop()
-    await loop.run_in_executor(None, sync_download_video, ydl_opts, url)
+    try:
+        await asyncio.wait_for(
+            loop.run_in_executor(None, sync_download_video, ydl_opts, url),
+            timeout=timeout,
+        )
+    except asyncio.TimeoutError:
+        # Re-raise the timeout error to be handled by the caller
+        # Or handle it here, e.g., log a message or notify the user
+        raise
 
 def sync_download_video(ydl_opts: Dict[str, Any], url: str) -> None:
     with YoutubeDL(ydl_opts) as ydl:
