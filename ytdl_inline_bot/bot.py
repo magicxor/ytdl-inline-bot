@@ -147,7 +147,6 @@ def get_best_video_audio_format(url: str) -> VideoMetadata:
     """Gets the best video and audio formats that meet the specified constraints and returns a VideoMetadata object."""
     ydl_opts = {
         'quiet': True,
-        'format': 'best',
     }
     with YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(url, download=False)
