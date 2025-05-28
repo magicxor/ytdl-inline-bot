@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import logging
 import os
-from typing import TypeAlias, Union, Optional, Dict, Any, List, TypeVar, Callable, Awaitable
+from typing import TypeAlias, Union, Optional, Dict, Any, List, TypeVar, Callable, Awaitable, Tuple
 import uuid
 import asyncio
 import re
@@ -187,12 +187,16 @@ def get_best_video_audio_format(url: str) -> VideoMetadata:
         ]
 
         # Custom sort key for audio formats
-        def audio_sort_key(f):
-            lang = f.get('language')
-            try:
-                lang_priority = PREFERRED_AUDIO_LANGUAGES.index(lang)
-            except ValueError:
-                lang_priority = len(PREFERRED_AUDIO_LANGUAGES)  # Lower priority for other languages
+        def audio_sort_key(f: Dict[str, Any]) -> Tuple[int, int]:
+            lang_value = f.get('language')
+            if isinstance(lang_value, str):
+                try:
+                    lang_priority = PREFERRED_AUDIO_LANGUAGES.index(lang_value)
+                except ValueError:
+                    lang_priority = len(PREFERRED_AUDIO_LANGUAGES)  # Lower priority for other languages
+            else:
+                lang_priority = len(PREFERRED_AUDIO_LANGUAGES) # lang is None or not a string
+
             filesize = f.get('filesize', 0)
             return (lang_priority, -filesize)  # Sort by lang priority (asc), then by filesize (desc)
 
