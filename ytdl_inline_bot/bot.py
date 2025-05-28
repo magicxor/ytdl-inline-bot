@@ -267,7 +267,7 @@ async def download_video_and_replace(url: str, inline_message_id: str, user_id: 
         }
 
         # Downloading the video and audio and merging with retry logic
-        await retry_operation(async_download_video, max_retries=2, delay=1, ydl_opts=ydl_opts, url=url)
+        await retry_operation(async_download_video, max_retries=2, delay=1, ydl_opts=ydl_opts, url=url, timeout=60.0)
 
         # Once the video is downloaded, replace the placeholder
         if os.path.exists(output_file):
@@ -351,10 +351,18 @@ async def download_video_and_replace(url: str, inline_message_id: str, user_id: 
                 media=InputMediaVideo(media=ERR_LOADING_VIDEO_URL, caption="Failed to replace the placeholder video.", width=ERR_VIDEO_WIDTH, height=ERR_VIDEO_HEIGHT, duration=ERR_VIDEO_DURATION, supports_streaming=False)
             )
 
-async def async_download_video(ydl_opts: Dict[str, Any], url: str) -> None:
+async def async_download_video(ydl_opts: Dict[str, Any], url: str, timeout: float = 60.0) -> None:
     """Asynchronously downloads a video using yt-dlp."""
     loop = asyncio.get_event_loop()
-    await loop.run_in_executor(None, sync_download_video, ydl_opts, url)
+    try:
+        await asyncio.wait_for(
+            loop.run_in_executor(None, sync_download_video, ydl_opts, url),
+            timeout=timeout,
+        )
+    except asyncio.TimeoutError:
+        # Re-raise the timeout error to be handled by the caller
+        # Or handle it here, e.g., log a message or notify the user
+        raise
 
 def sync_download_video(ydl_opts: Dict[str, Any], url: str) -> None:
     with YoutubeDL(ydl_opts) as ydl:
