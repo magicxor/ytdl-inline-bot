@@ -8,7 +8,7 @@ package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.11"
-yt-dlp = "^2025.6.9"
+yt-dlp = "^2025.6.30"
 certifi = "^2025.6.15"
 brotli = "^1.1.0"
 websockets = "^15.0.1"
