@@ -134,7 +134,7 @@ def get_best_video_audio_format(url: str) -> VideoMetadata:
     video_formats = [f for f in formats if f.get('vcodec') != 'none' and f.get('filesize')]
     
     # Find the best video format that meets our size constraints
-    for f in sorted(video_formats, key=lambda x: x.get('height', 0), reverse=True):
+    for f in sorted(video_formats, key=lambda x: x.get('height') or 0, reverse=True):
         video_filesize: int = f.get('filesize') or 0
         if video_filesize > 0 and video_filesize <= MAX_VIDEO_SIZE:
             best_video = f
@@ -149,7 +149,7 @@ def get_best_video_audio_format(url: str) -> VideoMetadata:
     
     # Prioritize audio formats by language preference
     for lang in PREFERRED_AUDIO_LANGUAGES:
-        for f in sorted(audio_formats, key=lambda x: x.get('abr', 0), reverse=True):
+        for f in sorted(audio_formats, key=lambda x: x.get('abr') or 0, reverse=True):
             audio_filesize_lang: int = f.get('filesize') or 0
             if audio_filesize_lang > 0 and audio_filesize_lang <= MAX_AUDIO_SIZE:
                 if f.get('language') == lang or lang.startswith(f.get('language', '')):
@@ -160,7 +160,7 @@ def get_best_video_audio_format(url: str) -> VideoMetadata:
     
     # If no language preference match, get the best quality audio that meets size constraints
     if not best_audio:
-        for f in sorted(audio_formats, key=lambda x: x.get('abr', 0), reverse=True):
+        for f in sorted(audio_formats, key=lambda x: x.get('abr') or 0, reverse=True):
             audio_filesize: int = f.get('filesize') or 0
             if audio_filesize > 0 and audio_filesize <= MAX_AUDIO_SIZE:
                 best_audio = f
