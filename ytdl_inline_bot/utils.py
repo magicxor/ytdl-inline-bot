@@ -135,13 +135,14 @@ def get_best_video_audio_format(url: str) -> VideoMetadata:
     
     # Find the best video format that meets our size constraints
     for f in sorted(video_formats, key=lambda x: x.get('height', 0), reverse=True):
-        if f.get('filesize', 0) <= MAX_VIDEO_SIZE:
+        filesize: int = f.get('filesize') or 0
+        if filesize > 0 and filesize <= MAX_VIDEO_SIZE:
             best_video = f
             break
     
     # If no video format meets our constraints, get the smallest one
     if not best_video and video_formats:
-        best_video = min(video_formats, key=lambda x: x.get('filesize', float('inf')))
+        best_video = min(video_formats, key=lambda x: x.get('filesize') or float('inf'))
     
     # Find the best audio format
     audio_formats = [f for f in formats if f.get('acodec') != 'none' and f.get('filesize')]
@@ -149,7 +150,8 @@ def get_best_video_audio_format(url: str) -> VideoMetadata:
     # Prioritize audio formats by language preference
     for lang in PREFERRED_AUDIO_LANGUAGES:
         for f in sorted(audio_formats, key=lambda x: x.get('abr', 0), reverse=True):
-            if f.get('filesize', 0) <= MAX_AUDIO_SIZE:
+            filesize: int = f.get('filesize') or 0
+            if filesize > 0 and filesize <= MAX_AUDIO_SIZE:
                 if f.get('language') == lang or lang.startswith(f.get('language', '')):
                     best_audio = f
                     break
@@ -159,13 +161,14 @@ def get_best_video_audio_format(url: str) -> VideoMetadata:
     # If no language preference match, get the best quality audio that meets size constraints
     if not best_audio:
         for f in sorted(audio_formats, key=lambda x: x.get('abr', 0), reverse=True):
-            if f.get('filesize', 0) <= MAX_AUDIO_SIZE:
+            filesize: int = f.get('filesize') or 0
+            if filesize > 0 and filesize <= MAX_AUDIO_SIZE:
                 best_audio = f
                 break
     
     # If no audio format meets our constraints, get the smallest one
     if not best_audio and audio_formats:
-        best_audio = min(audio_formats, key=lambda x: x.get('filesize', float('inf')))
+        best_audio = min(audio_formats, key=lambda x: x.get('filesize') or float('inf'))
     
     width = None
     height = None
