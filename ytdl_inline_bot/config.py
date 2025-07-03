@@ -23,6 +23,8 @@ PH_VIDEO_DURATION: int = int(os.environ.get("PH_VIDEO_DURATION", 10))  # seconds
 MEDIA_CHAT_ID: int = int(os.environ.get("MEDIA_CHAT_ID", -1002389753204))  # chat ID that the bot can send media to
 RATE_LIMIT_WINDOW_MINUTES: int = int(os.environ.get("RATE_LIMIT_WINDOW_MINUTES", 1))  # Rate limit window in minutes
 PREFERRED_AUDIO_LANGUAGES: List[str] = [lang.strip() for lang in os.environ.get("PREFERRED_AUDIO_LANGUAGES", "en-US,en,ru-RU,ru").split(',') if lang.strip()]
+BOT_COOKIES_BASE64: str | None = os.environ.get("BOT_COOKIES_BASE64")
+BOT_USER_AGENT: str | None = os.environ.get("BOT_USER_AGENT")
 
 # Dictionary to track user download attempts for rate limiting
 user_download_timestamps: Dict[int, datetime] = {}

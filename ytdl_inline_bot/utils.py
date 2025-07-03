@@ -4,17 +4,69 @@
 import logging
 import re
 import asyncio
+import base64
+import os
+import tempfile
 from typing import Optional, Dict, Any, TypeVar, Callable, Awaitable
 from urllib.parse import urlparse, parse_qs
 
 from yt_dlp import YoutubeDL
 
 from .models import VideoMetadata
-from .config import MAX_VIDEO_SIZE, MAX_AUDIO_SIZE, PREFERRED_AUDIO_LANGUAGES
+from .config import MAX_VIDEO_SIZE, MAX_AUDIO_SIZE, PREFERRED_AUDIO_LANGUAGES, BOT_COOKIES_BASE64, BOT_USER_AGENT
 
 logger: logging.Logger = logging.getLogger(__name__)
 
 T = TypeVar('T')
+
+# Global variable to store cookies file path
+_cookies_file_path: Optional[str] = None
+
+
+def setup_cookies_file() -> Optional[str]:
+    """Decode base64 cookies and save to a temporary file. Returns the file path or None if no cookies."""
+    global _cookies_file_path
+    
+    if _cookies_file_path and os.path.exists(_cookies_file_path):
+        return _cookies_file_path
+    
+    if not BOT_COOKIES_BASE64:
+        return None
+    
+    try:
+        # Decode base64 cookies
+        decoded_cookies: bytes = base64.b64decode(BOT_COOKIES_BASE64)
+        cookies_content: str = decoded_cookies.decode('utf-8')
+        
+        # Create a temporary file for cookies
+        temp_dir: str = tempfile.gettempdir()
+        _cookies_file_path = os.path.join(temp_dir, 'ytdl_bot_cookies.txt')
+        
+        with open(_cookies_file_path, 'w', encoding='utf-8') as f:
+            f.write(cookies_content)
+        
+        logger.info(f"Cookies file created at: {_cookies_file_path}")
+        return _cookies_file_path
+    except Exception as e:
+        logger.error(f"Failed to setup cookies file: {e}")
+        return None
+
+
+def create_ydl_opts_with_auth(base_opts: Dict[str, Any]) -> Dict[str, Any]:
+    """Create yt-dlp options with authentication (cookies and user agent)."""
+    ydl_opts: Dict[str, Any] = base_opts.copy()
+    
+    # Add cookies if available
+    cookies_file: Optional[str] = setup_cookies_file()
+    if cookies_file:
+        ydl_opts['cookiefile'] = cookies_file
+    
+    # Add user agent if available
+    if BOT_USER_AGENT:
+        ydl_opts['http_headers'] = ydl_opts.get('http_headers', {})
+        ydl_opts['http_headers']['User-Agent'] = BOT_USER_AGENT
+    
+    return ydl_opts
 
 
 def extract_youtube_video_id(url: str) -> Optional[str]:
@@ -43,73 +95,92 @@ def extract_youtube_video_id(url: str) -> Optional[str]:
 
 def get_best_video_audio_format(url: str) -> VideoMetadata:
     """Gets the best video and audio formats that meet the specified constraints and returns a VideoMetadata object."""
-    ydl_opts = {
+    base_ydl_opts: Dict[str, Any] = {
         'quiet': True,
     }
     
-    with YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(url, download=False)
-        video_id = extract_youtube_video_id(url)
-        title = info.get('fulltitle', f'Video_{video_id}' if video_id else 'Unknown_Video')
-        duration = int(info.get('duration', 0) or 0)
-        
-        # Find the best video format based on our criteria
-        best_video = None
-        best_audio = None
-        
-        formats = info.get('formats', [])
-        
-        # Find the best video format (preferably with audio)
-        video_formats = [f for f in formats if f.get('vcodec') != 'none' and f.get('filesize')]
-        
-        # Find the best video format that meets our size constraints
-        for f in sorted(video_formats, key=lambda x: x.get('height', 0), reverse=True):
-            if f.get('filesize', 0) <= MAX_VIDEO_SIZE:
-                best_video = f
-                break
-        
-        # If no video format meets our constraints, get the smallest one
-        if not best_video and video_formats:
-            best_video = min(video_formats, key=lambda x: x.get('filesize', float('inf')))
-        
-        # Find the best audio format
-        audio_formats = [f for f in formats if f.get('acodec') != 'none' and f.get('filesize')]
-        
-        # Prioritize audio formats by language preference
-        for lang in PREFERRED_AUDIO_LANGUAGES:
-            for f in sorted(audio_formats, key=lambda x: x.get('abr', 0), reverse=True):
-                if f.get('filesize', 0) <= MAX_AUDIO_SIZE:
-                    if f.get('language') == lang or lang.startswith(f.get('language', '')):
-                        best_audio = f
-                        break
-            if best_audio:
-                break
-        
-        # If no language preference match, get the best quality audio that meets size constraints
-        if not best_audio:
-            for f in sorted(audio_formats, key=lambda x: x.get('abr', 0), reverse=True):
-                if f.get('filesize', 0) <= MAX_AUDIO_SIZE:
+    info: Optional[Dict[str, Any]] = None
+    
+    # Try with authentication first if available
+    if BOT_COOKIES_BASE64 or BOT_USER_AGENT:
+        try:
+            ydl_opts_with_auth: Dict[str, Any] = create_ydl_opts_with_auth(base_ydl_opts)
+            logger.info("Attempting to extract video info with authentication...")
+            with YoutubeDL(ydl_opts_with_auth) as ydl:
+                info = ydl.extract_info(url, download=False)
+            logger.info("Successfully extracted video info with authentication")
+        except Exception as e:
+            logger.warning(f"Failed to extract video info with authentication: {e}. Falling back to default behavior.")
+            info = None
+    
+    # Fallback to default behavior if auth failed or not available
+    if info is None:
+        logger.info("Attempting to extract video info with default settings...")
+        with YoutubeDL(base_ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+    
+    # Process video info (common for both auth and fallback paths)
+    video_id = extract_youtube_video_id(url)
+    title = info.get('fulltitle', f'Video_{video_id}' if video_id else 'Unknown_Video')
+    duration = int(info.get('duration', 0) or 0)
+    
+    # Find the best video format based on our criteria
+    best_video = None
+    best_audio = None
+    
+    formats = info.get('formats', [])
+    
+    # Find the best video format (preferably with audio)
+    video_formats = [f for f in formats if f.get('vcodec') != 'none' and f.get('filesize')]
+    
+    # Find the best video format that meets our size constraints
+    for f in sorted(video_formats, key=lambda x: x.get('height', 0), reverse=True):
+        if f.get('filesize', 0) <= MAX_VIDEO_SIZE:
+            best_video = f
+            break
+    
+    # If no video format meets our constraints, get the smallest one
+    if not best_video and video_formats:
+        best_video = min(video_formats, key=lambda x: x.get('filesize', float('inf')))
+    
+    # Find the best audio format
+    audio_formats = [f for f in formats if f.get('acodec') != 'none' and f.get('filesize')]
+    
+    # Prioritize audio formats by language preference
+    for lang in PREFERRED_AUDIO_LANGUAGES:
+        for f in sorted(audio_formats, key=lambda x: x.get('abr', 0), reverse=True):
+            if f.get('filesize', 0) <= MAX_AUDIO_SIZE:
+                if f.get('language') == lang or lang.startswith(f.get('language', '')):
                     best_audio = f
                     break
-        
-        # If no audio format meets our constraints, get the smallest one
-        if not best_audio and audio_formats:
-            best_audio = min(audio_formats, key=lambda x: x.get('filesize', float('inf')))
-        
-        width = None
-        height = None
-        if best_video:
-            width = best_video.get('width')
-            height = best_video.get('height')
-        
-        return VideoMetadata(
-            best_video=best_video,
-            best_audio=best_audio,
-            title=title,
-            duration=duration,
-            width=width,
-            height=height
-        )
+        if best_audio:
+            break
+    
+    # If no language preference match, get the best quality audio that meets size constraints
+    if not best_audio:
+        for f in sorted(audio_formats, key=lambda x: x.get('abr', 0), reverse=True):
+            if f.get('filesize', 0) <= MAX_AUDIO_SIZE:
+                best_audio = f
+                break
+    
+    # If no audio format meets our constraints, get the smallest one
+    if not best_audio and audio_formats:
+        best_audio = min(audio_formats, key=lambda x: x.get('filesize', float('inf')))
+    
+    width = None
+    height = None
+    if best_video:
+        width = best_video.get('width')
+        height = best_video.get('height')
+    
+    return VideoMetadata(
+        best_video=best_video,
+        best_audio=best_audio,
+        title=title,
+        duration=duration,
+        width=width,
+        height=height
+    )
 
 
 async def retry_operation(
@@ -134,11 +205,11 @@ async def retry_operation(
 
 
 async def async_download_video(ydl_opts: Dict[str, Any], url: str, timeout: float = 60.0) -> None:
-    """Asynchronously downloads a video using yt-dlp."""
+    """Asynchronously downloads a video using yt-dlp with authentication fallback."""
     loop = asyncio.get_event_loop()
     try:
         await asyncio.wait_for(
-            loop.run_in_executor(None, sync_download_video, ydl_opts, url),
+            loop.run_in_executor(None, sync_download_video_with_fallback, ydl_opts, url),
             timeout=timeout,
         )
     except asyncio.TimeoutError:
@@ -151,3 +222,22 @@ def sync_download_video(ydl_opts: Dict[str, Any], url: str) -> None:
     """Synchronously downloads a video using yt-dlp."""
     with YoutubeDL(ydl_opts) as ydl:
         ydl.download([url])
+
+
+def sync_download_video_with_fallback(ydl_opts: Dict[str, Any], url: str) -> None:
+    """Synchronously downloads a video using yt-dlp with authentication first, then fallback."""
+    # Try with authentication first if available
+    if BOT_COOKIES_BASE64 or BOT_USER_AGENT:
+        try:
+            ydl_opts_with_auth: Dict[str, Any] = create_ydl_opts_with_auth(ydl_opts)
+            logger.info("Attempting to download video with authentication...")
+            with YoutubeDL(ydl_opts_with_auth) as ydl:
+                ydl.download([url])
+            logger.info("Successfully downloaded video with authentication")
+            return
+        except Exception as e:
+            logger.warning(f"Failed to download video with authentication: {e}. Falling back to default behavior.")
+    
+    # Fallback to default behavior
+    logger.info("Attempting to download video with default settings...")
+    sync_download_video(ydl_opts, url)
