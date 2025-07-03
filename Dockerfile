@@ -36,6 +36,6 @@ COPY pyproject.toml poetry.lock* ./
 RUN poetry config virtualenvs.create false && poetry install --no-interaction --no-ansi
 
 # Copy the rest of the application code
-COPY ytdl_inline_bot/ ./
+COPY . .
 
 CMD ["python", "-m", "ytdl_inline_bot.main"]
