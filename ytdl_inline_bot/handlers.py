@@ -201,7 +201,7 @@ async def download_video_and_replace(url: str, inline_message_id: str, user_id: 
             # Optionally, clean up the downloaded file
             os.remove(output_file)
     except Exception as e:
-        logger.error(f"Error replacing the placeholder video: {e}")
+        logger.exception(f"Error replacing the placeholder video: {e}")
 
         # Attempt to replace placeholder video with thumbnail image
         video_name: str = "Failed to download video."
@@ -213,7 +213,7 @@ async def download_video_and_replace(url: str, inline_message_id: str, user_id: 
                 if isinstance(title_tag, Tag) and title_tag.string:
                     video_name = title_tag.string.strip()
         except Exception as fetch_err:
-            logger.error(f"Error fetching video page or parsing title: {fetch_err}")
+            logger.exception(f"Error fetching video page or parsing title: {fetch_err}")
 
         # Use extracted video name instead of the hardcoded message
         try:
@@ -230,7 +230,7 @@ async def download_video_and_replace(url: str, inline_message_id: str, user_id: 
             else:
                 raise ValueError("Could not extract video ID")
         except Exception as e2:
-            logger.error(f"Error replacing with thumbnail image: {e2}")
+            logger.exception(f"Error replacing with thumbnail image: {e2}")
             # Fall back to current behavior
             await bot.edit_message_media(
                 inline_message_id=inline_message_id,

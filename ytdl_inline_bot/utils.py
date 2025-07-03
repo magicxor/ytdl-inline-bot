@@ -48,7 +48,7 @@ def setup_cookies_file() -> Optional[str]:
         logger.info(f"Cookies file created at: {_cookies_file_path}")
         return _cookies_file_path
     except Exception as e:
-        logger.error(f"Failed to setup cookies file: {e}")
+        logger.exception(f"Failed to setup cookies file: {e}")
         return None
 
 
@@ -110,7 +110,7 @@ def get_best_video_audio_format(url: str) -> VideoMetadata:
                 info = ydl.extract_info(url, download=False)
             logger.info("Successfully extracted video info with authentication")
         except Exception as e:
-            logger.warning(f"Failed to extract video info with authentication: {e}. Falling back to default behavior.")
+            logger.warning(f"Failed to extract video info with authentication: {e}. Falling back to default behavior.", exc_info=True)
             info = None
     
     # Fallback to default behavior if auth failed or not available
@@ -239,7 +239,7 @@ def sync_download_video_with_fallback(ydl_opts: Dict[str, Any], url: str) -> Non
             logger.info("Successfully downloaded video with authentication")
             return
         except Exception as e:
-            logger.warning(f"Failed to download video with authentication: {e}. Falling back to default behavior.")
+            logger.warning(f"Failed to download video with authentication: {e}. Falling back to default behavior.", exc_info=True)
     
     # Fallback to default behavior
     logger.info("Attempting to download video with default settings...")
