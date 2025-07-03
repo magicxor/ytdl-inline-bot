@@ -41,7 +41,5 @@ jobs:
 
     - name: Check types with mypy
       run: |
-        for file in $(find ./ytdl_inline_bot -name "*.py" -type f); do
-          echo "Checking types in $file..."
-          mypy --strict "$file"
-        done
+        echo "Checking types in $file..."
+        mypy --strict ./ytdl_inline_bot
