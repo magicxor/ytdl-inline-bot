@@ -135,7 +135,9 @@ async def download_video_and_replace(url: str, inline_message_id: str, user_id: 
             raise Exception(f"No suitable audio format found under {MAX_AUDIO_SIZE} bytes.")
 
         # Check if total size exceeds MAX_TG_FILE_SIZE
-        total_size: int = metadata.best_video['filesize'] + metadata.best_audio['filesize']
+        video_size: int = metadata.best_video.get('filesize') or 0
+        audio_size: int = metadata.best_audio.get('filesize') or 0
+        total_size: int = video_size + audio_size
         if total_size > MAX_TG_FILE_SIZE:
             raise Exception(f"Combined video and audio filesize ({total_size} bytes) exceeds {MAX_TG_FILE_SIZE // (1024 * 1024)} MB limit.")
 
