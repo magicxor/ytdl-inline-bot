@@ -152,7 +152,7 @@ def get_best_video_audio_format(url: str) -> VideoMetadata:
         for f in sorted(audio_formats, key=lambda x: x.get('abr') or 0, reverse=True):
             audio_filesize_lang: int = f.get('filesize') or 0
             if audio_filesize_lang > 0 and audio_filesize_lang <= MAX_AUDIO_SIZE:
-                if f.get('language') == lang or lang.startswith(f.get('language', '')):
+                if f.get('language') == lang or lang.startswith(f.get('language') or ''):
                     best_audio = f
                     break
         if best_audio:
