@@ -148,15 +148,31 @@ def get_best_video_audio_format(url: str) -> VideoMetadata:
     audio_formats = [f for f in formats if f.get('acodec') != 'none' and f.get('filesize')]
     
     # Prioritize audio formats by language preference
+    # First, collect all audio formats that match preferred languages
+    preferred_audio_formats: list[Dict[str, Any]] = []
     for lang in PREFERRED_AUDIO_LANGUAGES:
         for f in sorted(audio_formats, key=lambda x: x.get('abr') or 0, reverse=True):
             audio_filesize_lang: int = f.get('filesize') or 0
             if audio_filesize_lang > 0 and audio_filesize_lang <= MAX_AUDIO_SIZE:
                 if f.get('language') == lang or lang.startswith(f.get('language') or ''):
-                    best_audio = f
-                    break
-        if best_audio:
-            break
+                    preferred_audio_formats.append(f)
+    
+    # If we found preferred language formats, prioritize original ones
+    if preferred_audio_formats:
+        # Look for original audio track among preferred languages
+        original_audio = None
+        for f in preferred_audio_formats:
+            # Check if this format is marked as original
+            # yt-dlp often includes 'original' in the format note or language description
+            format_note: str = f.get('format_note', '').lower()
+            language_note: str = f.get('language', '')
+            
+            if 'original' in format_note or (language_note and 'original' in str(f).lower()):
+                original_audio = f
+                break
+        
+        # Use original if found, otherwise use the first preferred format
+        best_audio = original_audio if original_audio else preferred_audio_formats[0]
     
     # If no language preference match, get the best quality audio that meets size constraints
     if not best_audio:
