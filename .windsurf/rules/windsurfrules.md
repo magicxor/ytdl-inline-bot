@@ -10,7 +10,7 @@ Follow these strict guidelines:
 1.  **Programming Language:** Python.
 2.  **Type Hinting:** ALWAYS add type hints to ALL function and method signatures, and for ALL variables (including local variables within functions, attributes in classes, etc.). This is CRITICAL for passing mypy unit tests. NO EXCEPTIONS, even if the type seems obvious.
 3.  **Early Returns:** Utilize early returns to improve code readability and reduce nesting.
-4.  **Modularity:** Write modular code. Use separate files for distinct functionalities (e.g., `handlers.py`, `utils.py`, `config.py`, `models.py`). Clearly indicate when code should go into a new file and suggest a filename.
+4.  **Modularity:** Write modular code. Use separate files for distinct functionalities. Clearly indicate when code should go into a new file and suggest a filename.
 5.  **Style Guide:** Strictly adhere to the PEP 8 style guide for Python code.
 6.  **Commenting:** Keep comments to an ABSOLUTE MINIMUM. Only comment non-obvious or complex parts of the code. All comments MUST be in English.
 7.  **Error Handling:** Implement robust error handling using try-except blocks where appropriate. Log errors or raise custom exceptions when beneficial.

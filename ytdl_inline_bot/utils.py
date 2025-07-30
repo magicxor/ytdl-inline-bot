@@ -133,16 +133,29 @@ def get_best_video_audio_format(url: str) -> VideoMetadata:
     # Find the best video format (preferably with audio)
     video_formats = [f for f in formats if f.get('vcodec') != 'none' and f.get('filesize')]
     
-    # Find the best video format that meets our size constraints
-    for f in sorted(video_formats, key=lambda x: x.get('height') or 0, reverse=True):
-        video_filesize: int = f.get('filesize') or 0
-        if video_filesize > 0 and video_filesize <= MAX_VIDEO_SIZE:
-            best_video = f
-            break
+    # First, try to find the best video format with H.264 (avc1) codec that meets our size constraints
+    avc1_formats = [f for f in video_formats if 'avc1' in f.get('vcodec', '')]
+    if avc1_formats:
+        for f in sorted(avc1_formats, key=lambda x: x.get('height') or 0, reverse=True):
+            avc1_filesize: int = f.get('filesize') or 0
+            if avc1_filesize > 0 and avc1_filesize <= MAX_VIDEO_SIZE:
+                best_video = f
+                break
     
-    # If no video format meets our constraints, get the smallest one
+    # If no avc1 format meets our constraints, use the general algorithm
+    if not best_video:
+        for f in sorted(video_formats, key=lambda x: x.get('height') or 0, reverse=True):
+            general_filesize: int = f.get('filesize') or 0
+            if general_filesize > 0 and general_filesize <= MAX_VIDEO_SIZE:
+                best_video = f
+                break
+    
+    # If no video format meets our constraints, get the smallest one (prefer avc1 if available)
     if not best_video and video_formats:
-        best_video = min(video_formats, key=lambda x: x.get('filesize') or float('inf'))
+        if avc1_formats:
+            best_video = min(avc1_formats, key=lambda x: x.get('filesize') or float('inf'))
+        else:
+            best_video = min(video_formats, key=lambda x: x.get('filesize') or float('inf'))
     
     # Find the best audio format
     audio_formats = [f for f in formats if f.get('acodec') != 'none' and f.get('filesize')]
