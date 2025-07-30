@@ -137,16 +137,16 @@ def get_best_video_audio_format(url: str) -> VideoMetadata:
     avc1_formats = [f for f in video_formats if 'avc1' in f.get('vcodec', '')]
     if avc1_formats:
         for f in sorted(avc1_formats, key=lambda x: x.get('height') or 0, reverse=True):
-            video_filesize: int = f.get('filesize') or 0
-            if video_filesize > 0 and video_filesize <= MAX_VIDEO_SIZE:
+            avc1_filesize: int = f.get('filesize') or 0
+            if avc1_filesize > 0 and avc1_filesize <= MAX_VIDEO_SIZE:
                 best_video = f
                 break
     
     # If no avc1 format meets our constraints, use the general algorithm
     if not best_video:
         for f in sorted(video_formats, key=lambda x: x.get('height') or 0, reverse=True):
-            video_filesize: int = f.get('filesize') or 0
-            if video_filesize > 0 and video_filesize <= MAX_VIDEO_SIZE:
+            general_filesize: int = f.get('filesize') or 0
+            if general_filesize > 0 and general_filesize <= MAX_VIDEO_SIZE:
                 best_video = f
                 break
     
