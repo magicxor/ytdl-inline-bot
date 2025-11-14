@@ -1,4 +1,5 @@
 FROM python:3.13-slim
+COPY --from=denoland/deno:bin /deno /usr/local/bin/deno
 
 # Environment variables
 ENV MAX_VIDEO_SIZE=15728640
@@ -20,13 +21,9 @@ ENV RATE_LIMIT_WINDOW_MINUTES=1
 
 RUN apt-get update && \
     apt-get upgrade -y && \
-    apt-get install -y curl ffmpeg unzip && \
-    curl -o- https://fnm.vercel.app/install | bash
-SHELL ["/bin/bash", "--login", "-c"]
-RUN fnm install --lts && \
-    node -v && \
-    npm -v  && \
+    deno --version && \
     python -m pip install --upgrade pip && \
+    apt-get install -y curl ffmpeg unzip && \
     apt-get clean && rm -rf /var/lib/apt/lists/* && \
     mkdir /app
 
