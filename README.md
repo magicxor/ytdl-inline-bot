@@ -1,5 +1,9 @@
 # ytdl-inline-bot
 
+[![Update Dependencies](https://github.com/magicxor/ytdl-inline-bot/actions/workflows/on_schedule_update_dependencies.yml/badge.svg)](https://github.com/magicxor/ytdl-inline-bot/actions/workflows/on_schedule_update_dependencies.yml)
+[![master branch - check types, build, push](https://github.com/magicxor/ytdl-inline-bot/actions/workflows/on_master_push.yml/badge.svg)](https://github.com/magicxor/ytdl-inline-bot/actions/workflows/on_master_push.yml)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/magicxor/ytdl-inline-bot)
+
 A Telegram bot that allows users to download videos from YouTube via inline queries.
 
 https://github.com/user-attachments/assets/83826cf1-6486-4a7d-8631-6cdf44fac9d9
