@@ -20,13 +20,8 @@ ENV RATE_LIMIT_WINDOW_MINUTES=1
 
 RUN apt-get update && \
     apt-get upgrade -y && \
-    apt-get install -y curl ffmpeg unzip && \
-    curl -o- https://fnm.vercel.app/install | bash
-SHELL ["/bin/bash", "--login", "-c"]
-RUN fnm install --lts && \
-    node -v && \
-    npm -v  && \
     python -m pip install --upgrade pip && \
+    apt-get install -y curl ffmpeg && \
     apt-get clean && rm -rf /var/lib/apt/lists/* && \
     mkdir /app
 
