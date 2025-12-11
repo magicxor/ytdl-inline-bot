@@ -8,14 +8,14 @@ package-mode = false
 
 [tool.poetry.dependencies]
 python = "~3.13"
-yt-dlp = {extras = ["default"], version = "^2025.11.12"}
+yt-dlp = {extras = ["default"], version = "^2025.12.8"}
 certifi = "^2025.11.12"
 brotli = "^1.2.0"
 websockets = "^15.0.1"
 requests = "^2.32.5"
 curl-cffi = "^0.13.0"
 pycryptodome = "^3.23.0"
-aiogram = "^3.22.0"
+aiogram = "^3.23.0"
 httpx = "^0.28.1"
 beautifulsoup4 = "^4.14.3"
 types-beautifulsoup4 = "^4.12.0.20250516"
