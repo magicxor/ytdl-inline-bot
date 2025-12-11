@@ -7,7 +7,7 @@ readme = "README.md"
 package-mode = false
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = "~3.13"
 yt-dlp = {extras = ["default"], version = "^2025.11.12"}
 certifi = "^2025.11.12"
 brotli = "^1.2.0"
