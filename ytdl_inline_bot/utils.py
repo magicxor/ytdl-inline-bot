@@ -209,7 +209,7 @@ def _select_best_video_format(
     
     # Prefer H.264 (avc1) codec for better compatibility
     avc1_formats: list[Dict[str, Any]] = [
-        f for f in video_formats if 'avc1' in f.get('vcodec', '')
+        f for f in video_formats if 'avc1' in (f.get('vcodec') or '')
     ]
     
     best_video: Optional[Dict[str, Any]] = None
