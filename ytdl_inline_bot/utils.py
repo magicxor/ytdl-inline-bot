@@ -154,85 +154,17 @@ def get_best_video_audio_format(url: str) -> VideoMetadata:
     video_id: Optional[str] = extract_youtube_video_id(url) if is_youtube else None
     default_title: str = f'Video_{video_id}' if video_id else 'Unknown_Video'
     title: str = info.get('fulltitle') or info.get('title') or default_title
-    duration = int(info.get('duration', 0) or 0)
+    duration: int = int(info.get('duration', 0) or 0)
     
-    # Find the best video format based on our criteria
-    best_video = None
-    best_audio = None
+    formats: list[Dict[str, Any]] = info.get('formats', [])
     
-    formats = info.get('formats', [])
+    # For YouTube: require filesize info for size limit checks
+    # For other sites: allow unknown filesize (many sites don't provide it)
+    best_video: Optional[Dict[str, Any]] = _select_best_video_format(formats, is_youtube)
+    best_audio: Optional[Dict[str, Any]] = _select_best_audio_format(formats, is_youtube)
     
-    # Find the best video format (preferably with audio)
-    video_formats = [f for f in formats if f.get('vcodec') != 'none' and f.get('filesize')]
-    
-    # First, try to find the best video format with H.264 (avc1) codec that meets our size constraints
-    avc1_formats = [f for f in video_formats if 'avc1' in f.get('vcodec', '')]
-    if avc1_formats:
-        for f in sorted(avc1_formats, key=lambda x: x.get('height') or 0, reverse=True):
-            avc1_filesize: int = f.get('filesize') or 0
-            if avc1_filesize > 0 and avc1_filesize <= MAX_VIDEO_SIZE:
-                best_video = f
-                break
-    
-    # If no avc1 format meets our constraints, use the general algorithm
-    if not best_video:
-        for f in sorted(video_formats, key=lambda x: x.get('height') or 0, reverse=True):
-            general_filesize: int = f.get('filesize') or 0
-            if general_filesize > 0 and general_filesize <= MAX_VIDEO_SIZE:
-                best_video = f
-                break
-    
-    # If no video format meets our constraints, get the smallest one (prefer avc1 if available)
-    if not best_video and video_formats:
-        if avc1_formats:
-            best_video = min(avc1_formats, key=lambda x: x.get('filesize') or float('inf'))
-        else:
-            best_video = min(video_formats, key=lambda x: x.get('filesize') or float('inf'))
-    
-    # Find the best audio format
-    audio_formats = [f for f in formats if f.get('acodec') != 'none' and f.get('filesize')]
-    
-    # Prioritize audio formats by language preference
-    # First, collect all audio formats that match preferred languages
-    preferred_audio_formats: list[Dict[str, Any]] = []
-    for lang in PREFERRED_AUDIO_LANGUAGES:
-        for f in sorted(audio_formats, key=lambda x: x.get('abr') or 0, reverse=True):
-            audio_filesize_lang: int = f.get('filesize') or 0
-            if audio_filesize_lang > 0 and audio_filesize_lang <= MAX_AUDIO_SIZE:
-                if f.get('language') == lang or lang.startswith(f.get('language') or ''):
-                    preferred_audio_formats.append(f)
-    
-    # If we found preferred language formats, prioritize original ones
-    if preferred_audio_formats:
-        # Look for original audio track among preferred languages
-        original_audio = None
-        for f in preferred_audio_formats:
-            # Check if this format is marked as original
-            # yt-dlp often includes 'original' in the format note or language description
-            format_note: str = f.get('format_note', '').lower()
-            language_note: str = f.get('language', '')
-            
-            if 'original' in format_note or (language_note and 'original' in str(f).lower()):
-                original_audio = f
-                break
-        
-        # Use original if found, otherwise use the first preferred format
-        best_audio = original_audio if original_audio else preferred_audio_formats[0]
-    
-    # If no language preference match, get the best quality audio that meets size constraints
-    if not best_audio:
-        for f in sorted(audio_formats, key=lambda x: x.get('abr') or 0, reverse=True):
-            audio_filesize: int = f.get('filesize') or 0
-            if audio_filesize > 0 and audio_filesize <= MAX_AUDIO_SIZE:
-                best_audio = f
-                break
-    
-    # If no audio format meets our constraints, get the smallest one
-    if not best_audio and audio_formats:
-        best_audio = min(audio_formats, key=lambda x: x.get('filesize') or float('inf'))
-    
-    width = None
-    height = None
+    width: Optional[int] = None
+    height: Optional[int] = None
     if best_video:
         width = best_video.get('width')
         height = best_video.get('height')
@@ -245,6 +177,158 @@ def get_best_video_audio_format(url: str) -> VideoMetadata:
         width=width,
         height=height
     )
+
+
+def _select_best_video_format(
+    formats: list[Dict[str, Any]],
+    require_filesize: bool
+) -> Optional[Dict[str, Any]]:
+    """Select the best video format based on constraints."""
+    # Filter video formats: must have video codec
+    all_video_formats: list[Dict[str, Any]] = [
+        f for f in formats if f.get('vcodec') != 'none'
+    ]
+    
+    if not all_video_formats:
+        return None
+    
+    # Separate formats with known filesize
+    formats_with_size: list[Dict[str, Any]] = [
+        f for f in all_video_formats if f.get('filesize')
+    ]
+    
+    # For YouTube (require_filesize=True): only use formats with known filesize
+    # For other sites: prefer formats with size, but allow unknown if none available
+    if require_filesize:
+        video_formats: list[Dict[str, Any]] = formats_with_size
+    else:
+        video_formats = formats_with_size if formats_with_size else all_video_formats
+    
+    if not video_formats:
+        return None
+    
+    # Prefer H.264 (avc1) codec for better compatibility
+    avc1_formats: list[Dict[str, Any]] = [
+        f for f in video_formats if 'avc1' in f.get('vcodec', '')
+    ]
+    
+    best_video: Optional[Dict[str, Any]] = None
+    
+    # Try avc1 formats first
+    if avc1_formats:
+        best_video = _find_best_format_by_size(avc1_formats, MAX_VIDEO_SIZE, require_filesize)
+    
+    # Fallback to any video format
+    if not best_video:
+        best_video = _find_best_format_by_size(video_formats, MAX_VIDEO_SIZE, require_filesize)
+    
+    return best_video
+
+
+def _select_best_audio_format(
+    formats: list[Dict[str, Any]],
+    require_filesize: bool
+) -> Optional[Dict[str, Any]]:
+    """Select the best audio format based on constraints."""
+    # Filter audio-only formats: must have audio codec, no video
+    all_audio_formats: list[Dict[str, Any]] = [
+        f for f in formats
+        if f.get('acodec') != 'none' and f.get('vcodec') in ('none', None)
+    ]
+    
+    # If no audio-only formats, try formats that have audio (including video+audio)
+    if not all_audio_formats:
+        all_audio_formats = [f for f in formats if f.get('acodec') != 'none']
+    
+    if not all_audio_formats:
+        return None
+    
+    # Separate formats with known filesize
+    formats_with_size: list[Dict[str, Any]] = [
+        f for f in all_audio_formats if f.get('filesize')
+    ]
+    
+    if require_filesize:
+        audio_formats: list[Dict[str, Any]] = formats_with_size
+    else:
+        audio_formats = formats_with_size if formats_with_size else all_audio_formats
+    
+    if not audio_formats:
+        return None
+    
+    best_audio: Optional[Dict[str, Any]] = None
+    
+    # Prioritize by preferred languages (YouTube-specific, but won't hurt for others)
+    for lang in PREFERRED_AUDIO_LANGUAGES:
+        lang_formats: list[Dict[str, Any]] = [
+            f for f in audio_formats
+            if f.get('language') == lang or lang.startswith(f.get('language') or '')
+        ]
+        if lang_formats:
+            best_audio = _find_best_audio_by_bitrate(lang_formats, MAX_AUDIO_SIZE, require_filesize)
+            if best_audio:
+                break
+    
+    # Fallback to best quality audio without language preference
+    if not best_audio:
+        best_audio = _find_best_audio_by_bitrate(audio_formats, MAX_AUDIO_SIZE, require_filesize)
+    
+    return best_audio
+
+
+def _find_best_format_by_size(
+    formats: list[Dict[str, Any]],
+    max_size: int,
+    require_filesize: bool
+) -> Optional[Dict[str, Any]]:
+    """Find the best video format by height, respecting size constraints if known."""
+    # Sort by height descending (best quality first)
+    sorted_formats: list[Dict[str, Any]] = sorted(
+        formats, key=lambda x: x.get('height') or 0, reverse=True
+    )
+    
+    # First pass: find format that fits within size limit
+    for f in sorted_formats:
+        filesize: int = f.get('filesize') or 0
+        if filesize > 0:
+            if filesize <= max_size:
+                return f
+        elif not require_filesize:
+            # Unknown filesize allowed for non-YouTube
+            return f
+    
+    # Second pass: if require_filesize, get smallest available
+    if require_filesize and formats:
+        return min(formats, key=lambda x: x.get('filesize') or float('inf'))
+    
+    return None
+
+
+def _find_best_audio_by_bitrate(
+    formats: list[Dict[str, Any]],
+    max_size: int,
+    require_filesize: bool
+) -> Optional[Dict[str, Any]]:
+    """Find the best audio format by bitrate, respecting size constraints if known."""
+    # Sort by audio bitrate descending (best quality first)
+    sorted_formats: list[Dict[str, Any]] = sorted(
+        formats, key=lambda x: x.get('abr') or 0, reverse=True
+    )
+    
+    # First pass: find format that fits within size limit
+    for f in sorted_formats:
+        filesize: int = f.get('filesize') or 0
+        if filesize > 0:
+            if filesize <= max_size:
+                return f
+        elif not require_filesize:
+            return f
+    
+    # Second pass: if require_filesize, get smallest available
+    if require_filesize and formats:
+        return min(formats, key=lambda x: x.get('filesize') or float('inf'))
+    
+    return None
 
 
 async def retry_operation(
