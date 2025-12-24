@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Bot handlers for the YouTube downloader inline bot."""
+"""Bot handlers for the video downloader inline bot."""
 
 import logging
 import os
@@ -41,7 +41,14 @@ from .config import (
     ERR_VIDEO_DURATION,
     user_download_timestamps,
 )
-from .utils import get_best_video_audio_format, retry_operation, async_download_video, extract_youtube_video_id
+from .utils import (
+    get_best_video_audio_format,
+    retry_operation,
+    async_download_video,
+    extract_youtube_video_id,
+    is_valid_url,
+    is_youtube_url,
+)
 from .bot_instance import bot
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -51,7 +58,7 @@ async def start(message: types.Message) -> None:
     """Send a message when the command /start is issued."""
     user = message.from_user
     if user is not None:
-        await message.reply(f"Hi {user.mention_html()}! Type a YouTube link using an inline query!", parse_mode="HTML")
+        await message.reply(f"Hi {user.mention_html()}! Paste a video link using an inline query!", parse_mode="HTML")
 
 
 async def inlinequery(inline_query: types.InlineQuery) -> None:
@@ -70,7 +77,7 @@ async def inlinequery(inline_query: types.InlineQuery) -> None:
     if not query:
         return
 
-    if query.startswith(("https://youtu.be/", "https://www.youtube.com/watch", "https://youtube.com/watch", "https://m.youtube.com/watch", "https://youtube.com/shorts/", "https://www.youtube.com/shorts/")):
+    if is_valid_url(query):
         # Send a placeholder with loading video
         results: InlineQueryResultType = [
             InlineQueryResultVideo(
@@ -202,20 +209,26 @@ async def download_video_and_replace(url: str, inline_message_id: str, user_id: 
             os.remove(output_file)
     except Exception as e:
         logger.exception(f"Error replacing the placeholder video: {e}")
+        await _handle_download_error(url, inline_message_id)
 
-        # Attempt to replace placeholder video with thumbnail image
-        video_name: str = "Failed to download video."
-        try:
-            async with httpx.AsyncClient(follow_redirects=True) as client:
-                r = await client.get(url)
-                soup = BeautifulSoup(r.text, "html.parser")
-                title_tag = soup.find("title")
-                if isinstance(title_tag, Tag) and title_tag.string:
-                    video_name = title_tag.string.strip()
-        except Exception as fetch_err:
-            logger.exception(f"Error fetching video page or parsing title: {fetch_err}")
 
-        # Use extracted video name instead of the hardcoded message
+async def _handle_download_error(url: str, inline_message_id: str) -> None:
+    """Handle download error with YouTube-specific thumbnail fallback or generic error."""
+    video_name: str = "Failed to download video."
+    
+    # Try to fetch page title for better error message
+    try:
+        async with httpx.AsyncClient(follow_redirects=True, timeout=10.0) as client:
+            r = await client.get(url)
+            soup = BeautifulSoup(r.text, "html.parser")
+            title_tag = soup.find("title")
+            if isinstance(title_tag, Tag) and title_tag.string:
+                video_name = title_tag.string.strip()
+    except Exception as fetch_err:
+        logger.exception(f"Error fetching video page or parsing title: {fetch_err}")
+
+    # YouTube-specific: try to show thumbnail image
+    if is_youtube_url(url):
         try:
             video_id: str | None = extract_youtube_video_id(url)
             if video_id:
@@ -227,12 +240,22 @@ async def download_video_and_replace(url: str, inline_message_id: str, user_id: 
                         caption=f"{video_name}\n{url}"
                     )
                 )
-            else:
-                raise ValueError("Could not extract video ID")
-        except Exception as e2:
-            logger.exception(f"Error replacing with thumbnail image: {e2}")
-            # Fall back to current behavior
-            await bot.edit_message_media(
-                inline_message_id=inline_message_id,
-                media=InputMediaVideo(media=ERR_LOADING_VIDEO_URL, caption="Failed to replace the placeholder video.", width=ERR_VIDEO_WIDTH, height=ERR_VIDEO_HEIGHT, duration=ERR_VIDEO_DURATION, supports_streaming=False)
+                return
+        except Exception as yt_err:
+            logger.exception(f"Error replacing with YouTube thumbnail: {yt_err}")
+
+    # Generic fallback for non-YouTube or if YouTube thumbnail failed
+    try:
+        await bot.edit_message_media(
+            inline_message_id=inline_message_id,
+            media=InputMediaVideo(
+                media=ERR_LOADING_VIDEO_URL,
+                caption=f"{video_name}\n{url}",
+                width=ERR_VIDEO_WIDTH,
+                height=ERR_VIDEO_HEIGHT,
+                duration=ERR_VIDEO_DURATION,
+                supports_streaming=False
             )
+        )
+    except Exception as fallback_err:
+        logger.exception(f"Error showing fallback error video: {fallback_err}")

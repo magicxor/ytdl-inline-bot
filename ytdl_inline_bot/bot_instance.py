@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Bot instance and dispatcher setup for the YouTube downloader inline bot."""
+"""Bot instance and dispatcher setup for the video downloader inline bot."""
 
 from aiogram import Bot, Dispatcher, Router
 
