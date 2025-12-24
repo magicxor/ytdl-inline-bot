@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Configuration module for the YouTube downloader inline bot."""
+"""Configuration module for the video downloader inline bot."""
 
 import os
 from typing import Dict, List

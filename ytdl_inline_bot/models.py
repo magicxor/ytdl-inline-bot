@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Data models and type definitions for the YouTube downloader inline bot."""
+"""Data models and type definitions for the video downloader inline bot."""
 
 from typing import TypeAlias, Union, Optional, Dict, Any, List
 from dataclasses import dataclass
@@ -30,7 +30,7 @@ from aiogram.types import (
 
 @dataclass
 class VideoMetadata:
-    """Metadata for a YouTube video."""
+    """Metadata for a video from any supported source."""
     best_video: Optional[Dict[str, Any]]
     best_audio: Optional[Dict[str, Any]]
     title: str

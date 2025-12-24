@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Main entry point for the YouTube downloader inline bot."""
+"""Main entry point for the video downloader inline bot."""
 
 import logging
 import asyncio

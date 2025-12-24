@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Utility functions for the YouTube downloader inline bot."""
+"""Utility functions for the video downloader inline bot."""
 
 import logging
 import re
@@ -8,7 +8,7 @@ import base64
 import os
 import tempfile
 from typing import Optional, Dict, Any, TypeVar, Callable, Awaitable
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import urlparse, parse_qs, ParseResult
 
 from yt_dlp import YoutubeDL
 
@@ -69,10 +69,40 @@ def create_ydl_opts_with_auth(base_opts: Dict[str, Any]) -> Dict[str, Any]:
     return ydl_opts
 
 
+YOUTUBE_BASE_DOMAINS: tuple[str, ...] = (
+    'youtube.com',
+    'youtu.be',
+)
+
+
+def is_valid_url(url: str) -> bool:
+    """Check if the given string is a valid http/https URL."""
+    try:
+        parsed: ParseResult = urlparse(url)
+        return parsed.scheme in ('http', 'https') and bool(parsed.netloc)
+    except Exception:
+        return False
+
+
+def is_youtube_url(url: str) -> bool:
+    """Check if the given URL is a YouTube URL (including subdomains)."""
+    try:
+        parsed: ParseResult = urlparse(url)
+        hostname: str | None = parsed.hostname
+        if hostname is None:
+            return False
+        # Match exact domain or any subdomain (e.g., www.youtube.com, m.youtube.com)
+        # but NOT domains like youtube.com.evil.com
+        for base_domain in YOUTUBE_BASE_DOMAINS:
+            if hostname == base_domain or hostname.endswith('.' + base_domain):
+                return True
+        return False
+    except Exception:
+        return False
+
+
 def extract_youtube_video_id(url: str) -> Optional[str]:
-    """
-    Extracts the YouTube video ID from various YouTube URL formats.
-    """
+    """Extract the YouTube video ID from various YouTube URL formats."""
     parsed_url = urlparse(url)
     query_params = parse_qs(parsed_url.query)
     if 'v' in query_params:
@@ -94,34 +124,36 @@ def extract_youtube_video_id(url: str) -> Optional[str]:
 
 
 def get_best_video_audio_format(url: str) -> VideoMetadata:
-    """Gets the best video and audio formats that meet the specified constraints and returns a VideoMetadata object."""
+    """Get the best video and audio formats that meet the specified constraints."""
     base_ydl_opts: Dict[str, Any] = {
         'quiet': True,
     }
     
     info: Optional[Dict[str, Any]] = None
+    is_youtube: bool = is_youtube_url(url)
     
-    # Try with authentication first if available
-    if BOT_COOKIES_BASE64 or BOT_USER_AGENT:
+    # Try with authentication first for YouTube URLs only
+    if is_youtube and (BOT_COOKIES_BASE64 or BOT_USER_AGENT):
         try:
             ydl_opts_with_auth: Dict[str, Any] = create_ydl_opts_with_auth(base_ydl_opts)
-            logger.info("Attempting to extract video info with authentication...")
+            logger.info("Attempting to extract YouTube video info with authentication...")
             with YoutubeDL(ydl_opts_with_auth) as ydl:
                 info = ydl.extract_info(url, download=False)
-            logger.info("Successfully extracted video info with authentication")
+            logger.info("Successfully extracted YouTube video info with authentication")
         except Exception as e:
-            logger.warning(f"Failed to extract video info with authentication: {e}. Falling back to default behavior.", exc_info=True)
+            logger.warning(f"Failed to extract YouTube video info with authentication: {e}. Falling back to default behavior.", exc_info=True)
             info = None
     
-    # Fallback to default behavior if auth failed or not available
+    # Fallback to default behavior if auth failed or not available (or non-YouTube URL)
     if info is None:
-        logger.info("Attempting to extract video info with default settings...")
+        logger.info(f"Attempting to extract video info with default settings (YouTube: {is_youtube})...")
         with YoutubeDL(base_ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
     
-    # Process video info (common for both auth and fallback paths)
-    video_id = extract_youtube_video_id(url)
-    title = info.get('fulltitle', f'Video_{video_id}' if video_id else 'Unknown_Video')
+    # Build title: use YouTube video ID for YouTube, or generic fallback for other sites
+    video_id: Optional[str] = extract_youtube_video_id(url) if is_youtube else None
+    default_title: str = f'Video_{video_id}' if video_id else 'Unknown_Video'
+    title: str = info.get('fulltitle') or info.get('title') or default_title
     duration = int(info.get('duration', 0) or 0)
     
     # Find the best video format based on our criteria
@@ -257,19 +289,21 @@ def sync_download_video(ydl_opts: Dict[str, Any], url: str) -> None:
 
 
 def sync_download_video_with_fallback(ydl_opts: Dict[str, Any], url: str) -> None:
-    """Synchronously downloads a video using yt-dlp with authentication first, then fallback."""
-    # Try with authentication first if available
-    if BOT_COOKIES_BASE64 or BOT_USER_AGENT:
+    """Synchronously download a video using yt-dlp with YouTube auth fallback."""
+    is_youtube: bool = is_youtube_url(url)
+    
+    # Try with authentication first for YouTube URLs only
+    if is_youtube and (BOT_COOKIES_BASE64 or BOT_USER_AGENT):
         try:
             ydl_opts_with_auth: Dict[str, Any] = create_ydl_opts_with_auth(ydl_opts)
-            logger.info("Attempting to download video with authentication...")
+            logger.info("Attempting to download YouTube video with authentication...")
             with YoutubeDL(ydl_opts_with_auth) as ydl:
                 ydl.download([url])
-            logger.info("Successfully downloaded video with authentication")
+            logger.info("Successfully downloaded YouTube video with authentication")
             return
         except Exception as e:
-            logger.warning(f"Failed to download video with authentication: {e}. Falling back to default behavior.", exc_info=True)
+            logger.warning(f"Failed to download YouTube video with authentication: {e}. Falling back to default behavior.", exc_info=True)
     
-    # Fallback to default behavior
-    logger.info("Attempting to download video with default settings...")
+    # Fallback to default behavior (or direct download for non-YouTube)
+    logger.info(f"Attempting to download video with default settings (YouTube: {is_youtube})...")
     sync_download_video(ydl_opts, url)
