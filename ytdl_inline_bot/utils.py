@@ -225,11 +225,52 @@ def _select_best_video_format(
     return best_video
 
 
+def _is_original_audio(fmt: Dict[str, Any]) -> bool:
+    """Check if an audio format is marked as original (not a dub)."""
+    # Check format_note field (e.g., "Russian original, medium")
+    format_note: str = (fmt.get('format_note') or '').lower()
+    if 'original' in format_note:
+        return True
+    
+    # Check audio_description field
+    audio_desc: str = (fmt.get('audio_description') or '').lower()
+    if 'original' in audio_desc:
+        return True
+    
+    # Check format field (full format string)
+    format_str: str = (fmt.get('format') or '').lower()
+    if 'original' in format_str:
+        return True
+    
+    return False
+
+
+def _matches_preferred_language(fmt: Dict[str, Any], preferred_langs: list[str]) -> bool:
+    """Check if format's language matches any of the preferred languages."""
+    fmt_lang: Optional[str] = fmt.get('language')
+    if not fmt_lang:
+        return False
+    
+    for lang in preferred_langs:
+        if fmt_lang == lang or fmt_lang.startswith(lang) or lang.startswith(fmt_lang):
+            return True
+    return False
+
+
 def _select_best_audio_format(
     formats: list[Dict[str, Any]],
     require_filesize: bool
 ) -> Optional[Dict[str, Any]]:
-    """Select the best audio format based on constraints."""
+    """Select the best audio format based on constraints.
+    
+    Priority order:
+    1. Original audio track in a language from PREFERRED_AUDIO_LANGUAGES
+    2. Dubbed audio track in any language from PREFERRED_AUDIO_LANGUAGES (by order in list)
+    3. Original audio track in any language
+    4. Any audio track
+    
+    Within each category, prefer tracks that fit within MAX_AUDIO_SIZE, but language > size.
+    """
     # Filter audio-only formats: must have audio codec, no video
     all_audio_formats: list[Dict[str, Any]] = [
         f for f in formats
@@ -256,22 +297,70 @@ def _select_best_audio_format(
     if not audio_formats:
         return None
     
+    # Categorize formats
+    original_preferred: list[Dict[str, Any]] = []  # Priority 1: original + preferred language
+    dubbed_preferred: Dict[str, list[Dict[str, Any]]] = {}  # Priority 2: dubbed + preferred language (by lang)
+    original_any: list[Dict[str, Any]] = []  # Priority 3: original + any language
+    other_formats: list[Dict[str, Any]] = []  # Priority 4: anything else
+    
+    for fmt in audio_formats:
+        is_original = _is_original_audio(fmt)
+        matches_preferred = _matches_preferred_language(fmt, PREFERRED_AUDIO_LANGUAGES)
+        
+        if is_original and matches_preferred:
+            original_preferred.append(fmt)
+        elif not is_original and matches_preferred:
+            # Group dubbed formats by their matching preferred language for priority ordering
+            fmt_lang: Optional[str] = fmt.get('language')
+            if fmt_lang:
+                for lang in PREFERRED_AUDIO_LANGUAGES:
+                    if fmt_lang == lang or fmt_lang.startswith(lang) or lang.startswith(fmt_lang):
+                        if lang not in dubbed_preferred:
+                            dubbed_preferred[lang] = []
+                        dubbed_preferred[lang].append(fmt)
+                        break
+        elif is_original:
+            original_any.append(fmt)
+        else:
+            other_formats.append(fmt)
+    
     best_audio: Optional[Dict[str, Any]] = None
     
-    # Prioritize by preferred languages (YouTube-specific, but won't hurt for others)
-    for lang in PREFERRED_AUDIO_LANGUAGES:
-        lang_formats: list[Dict[str, Any]] = [
-            f for f in audio_formats
-            if f.get('language') == lang or lang.startswith(f.get('language') or '')
-        ]
-        if lang_formats:
-            best_audio = _find_best_audio_by_bitrate(lang_formats, MAX_AUDIO_SIZE, require_filesize)
-            if best_audio:
-                break
+    # Priority 1: Original audio in preferred language
+    if original_preferred:
+        best_audio = _find_best_audio_by_bitrate(original_preferred, MAX_AUDIO_SIZE, require_filesize)
+        if best_audio:
+            return best_audio
+        # If nothing fits size, still pick best quality from this category (language > size)
+        best_audio = _find_best_audio_by_bitrate_ignore_size(original_preferred)
+        if best_audio:
+            return best_audio
     
-    # Fallback to best quality audio without language preference
-    if not best_audio:
-        best_audio = _find_best_audio_by_bitrate(audio_formats, MAX_AUDIO_SIZE, require_filesize)
+    # Priority 2: Dubbed audio in preferred language (by order in PREFERRED_AUDIO_LANGUAGES)
+    for lang in PREFERRED_AUDIO_LANGUAGES:
+        if lang in dubbed_preferred and dubbed_preferred[lang]:
+            best_audio = _find_best_audio_by_bitrate(dubbed_preferred[lang], MAX_AUDIO_SIZE, require_filesize)
+            if best_audio:
+                return best_audio
+            # Language > size: pick best quality even if over size limit
+            best_audio = _find_best_audio_by_bitrate_ignore_size(dubbed_preferred[lang])
+            if best_audio:
+                return best_audio
+    
+    # Priority 3: Original audio in any language
+    if original_any:
+        best_audio = _find_best_audio_by_bitrate(original_any, MAX_AUDIO_SIZE, require_filesize)
+        if best_audio:
+            return best_audio
+        best_audio = _find_best_audio_by_bitrate_ignore_size(original_any)
+        if best_audio:
+            return best_audio
+    
+    # Priority 4: Any audio track
+    best_audio = _find_best_audio_by_bitrate(other_formats, MAX_AUDIO_SIZE, require_filesize)
+    if best_audio:
+        return best_audio
+    best_audio = _find_best_audio_by_bitrate_ignore_size(other_formats)
     
     return best_audio
 
@@ -310,6 +399,9 @@ def _find_best_audio_by_bitrate(
     require_filesize: bool
 ) -> Optional[Dict[str, Any]]:
     """Find the best audio format by bitrate, respecting size constraints if known."""
+    if not formats:
+        return None
+    
     # Sort by audio bitrate descending (best quality first)
     sorted_formats: list[Dict[str, Any]] = sorted(
         formats, key=lambda x: x.get('abr') or 0, reverse=True
@@ -329,6 +421,17 @@ def _find_best_audio_by_bitrate(
         return min(formats, key=lambda x: x.get('filesize') or float('inf'))
     
     return None
+
+
+def _find_best_audio_by_bitrate_ignore_size(
+    formats: list[Dict[str, Any]]
+) -> Optional[Dict[str, Any]]:
+    """Find the best audio format by bitrate, ignoring size constraints."""
+    if not formats:
+        return None
+    
+    # Sort by audio bitrate descending (best quality first) and return the best one
+    return max(formats, key=lambda x: x.get('abr') or 0)
 
 
 async def retry_operation(
