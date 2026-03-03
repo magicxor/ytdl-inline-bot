@@ -8,8 +8,8 @@ package-mode = false
 
 [tool.poetry.dependencies]
 python = "~3.13"
-yt-dlp = {extras = ["default"], version = "^2026.2.4"}
-certifi = "^2026.1.4"
+yt-dlp = {extras = ["default"], version = "^2026.2.21"}
+certifi = "^2026.2.25"
 brotli = "^1.2.0"
 websockets = "^16.0"
 requests = "^2.32.5"
