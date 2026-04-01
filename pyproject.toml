@@ -12,7 +12,7 @@ yt-dlp = {extras = ["default"], version = "^2026.3.17"}
 certifi = "^2026.2.25"
 brotli = "^1.2.0"
 websockets = "^16.0"
-requests = "^2.32.5"
+requests = "^2.33.1"
 curl-cffi = "^0.14.0"
 pycryptodome = "^3.23.0"
 aiogram = "^3.26.0"
@@ -21,7 +21,7 @@ beautifulsoup4 = "^4.14.3"
 types-beautifulsoup4 = "^4.12.0.20250516"
 
 [tool.poetry.group.dev.dependencies]
-mypy = "^1.19.1"
+mypy = "^1.20.0"
 
 [build-system]
 requires = ["poetry-core"]
