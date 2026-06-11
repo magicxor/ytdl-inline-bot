@@ -289,13 +289,13 @@ files = [
 
 [[package]]
 name = "beautifulsoup4"
-version = "4.14.3"
+version = "4.15.0"
 description = "Screen-scraping library"
 optional = false
 python-versions = ">=3.7.0"
 files = [
-    {file = "beautifulsoup4-4.14.3-py3-none-any.whl", hash = "sha256:0918bfe44902e6ad8d57732ba310582e98da931428d231a5ecb9e7c703a735bb"},
-    {file = "beautifulsoup4-4.14.3.tar.gz", hash = "sha256:6292b1c5186d356bba669ef9f7f051757099565ad9ada5dd630bd9de5fa7fb86"},
+    {file = "beautifulsoup4-4.15.0-py3-none-any.whl", hash = "sha256:d6f88de62e1d4e38ecb1077eb9724cd0eff29d2a08ca16a401e9b9e93f117cf9"},
+    {file = "beautifulsoup4-4.15.0.tar.gz", hash = "sha256:288e3ca7d54b06f2ac191970bc275c1939cb46d450b255bf6718b04aa37ab4f7"},
 ]
 
 [package.dependencies]
@@ -928,13 +928,13 @@ zstd = ["zstandard (>=0.18.0)"]
 
 [[package]]
 name = "idna"
-version = "3.17"
+version = "3.18"
 description = "Internationalized Domain Names in Applications (IDNA)"
 optional = false
 python-versions = ">=3.9"
 files = [
-    {file = "idna-3.17-py3-none-any.whl", hash = "sha256:466e48829084efe2548012b855df21540b96f2e20e51bd124c851536556a592c"},
-    {file = "idna-3.17.tar.gz", hash = "sha256:5eb0cb53bc467c12eadcf6de83163ad8527cec9416f44b9b61b19caedad2b87f"},
+    {file = "idna-3.18-py3-none-any.whl", hash = "sha256:7f952cbe720b688055e3f87de14f5c3e5fdaa8bc3928985c4077ca689de849a2"},
+    {file = "idna-3.18.tar.gz", hash = "sha256:ffb385a7e039654cef1ab9ef32c6fafe283c0c0467bba1d9029738ce4a14a848"},
 ]
 
 [package.extras]
@@ -2076,17 +2076,17 @@ propcache = ">=0.2.1"
 
 [[package]]
 name = "yt-dlp"
-version = "2026.3.17"
+version = "2026.6.9"
 description = "A feature-rich command-line audio/video downloader"
 optional = false
 python-versions = ">=3.10"
 files = [
-    {file = "yt_dlp-2026.3.17-py3-none-any.whl", hash = "sha256:32992db94303a8a5d211a183f2174834fe7f8c29d83ed2e7a324eae97a8f26d8"},
-    {file = "yt_dlp-2026.3.17.tar.gz", hash = "sha256:ba7aa31d533f1ffccfe70e421596d7ca8ff0bf1398dc6bb658b7d9dec057d2c9"},
+    {file = "yt_dlp-2026.6.9-py3-none-any.whl", hash = "sha256:442ba4c75724b9496144c8434b617962ee08d0ee7c26ec663848fe9b78d5a3e4"},
+    {file = "yt_dlp-2026.6.9.tar.gz", hash = "sha256:d50fcb95f48d61bedde33e408c1881d4c279e51c31354a599ce09e96ba0f4b86"},
 ]
 
 [package.dependencies]
-brotli = {version = "*", optional = true, markers = "implementation_name == \"cpython\" and extra == \"default\""}
+brotli = {version = "*", optional = true, markers = "implementation_name == \"cpython\" and sys_platform != \"ios\" and extra == \"default\""}
 brotlicffi = {version = "*", optional = true, markers = "implementation_name != \"cpython\" and extra == \"default\""}
 certifi = {version = "*", optional = true, markers = "extra == \"default\""}
 mutagen = {version = "*", optional = true, markers = "extra == \"default\""}
@@ -2097,16 +2097,14 @@ websockets = {version = ">=13.0", optional = true, markers = "extra == \"default
 yt-dlp-ejs = {version = "0.8.0", optional = true, markers = "extra == \"default\""}
 
 [package.extras]
-build = ["build", "hatchling (>=1.27.0)", "pip", "setuptools (>=71.0.2)", "wheel"]
-build-curl-cffi = ["curl-cffi (==0.13.0)", "curl-cffi (==0.14.0)"]
-curl-cffi = ["curl-cffi (>=0.5.10,<0.6.dev0 || >=0.10.dev0,<0.15)"]
+curl-cffi = ["curl-cffi (>=0.5.10,<0.6.dev0 || >=0.10.dev0,<0.16)"]
 default = ["brotli", "brotlicffi", "certifi", "mutagen", "pycryptodomex", "requests (>=2.32.2,<3)", "urllib3 (>=2.0.2,<3)", "websockets (>=13.0)", "yt-dlp-ejs (==0.8.0)"]
 deno = ["deno (>=2.6.6)"]
-dev = ["autopep8 (>=2.0,<3.0)", "pre-commit", "pytest (>=8.1,<9.0)", "pytest-rerunfailures (>=14.0,<15.0)", "ruff (>=0.15.0,<0.16.0)"]
-pyinstaller = ["pyinstaller (>=6.17.0)"]
-secretstorage = ["cffi", "secretstorage"]
-static-analysis = ["autopep8 (>=2.0,<3.0)", "ruff (>=0.15.0,<0.16.0)"]
-test = ["pytest (>=8.1,<9.0)", "pytest-rerunfailures (>=14.0,<15.0)"]
+pin = ["brotli (==1.2.0)", "brotlicffi (==1.2.0.1)", "certifi (==2026.5.20)", "charset-normalizer (==3.4.7)", "idna (==3.17)", "mutagen (==1.47.0)", "pycryptodomex (==3.23.0)", "requests (==2.34.2)", "urllib3 (==2.7.0)", "websockets (==16.0)", "yt-dlp-ejs (==0.8.0)"]
+pin-curl-cffi = ["certifi (==2026.5.20)", "cffi (==2.0.0)", "curl-cffi (==0.15.0)", "markdown-it-py (==4.2.0)", "mdurl (==0.1.2)", "pycparser (==3.0)", "pygments (==2.20.0)", "rich (==15.0.0)"]
+pin-deno = ["deno (==2.8.1)"]
+pin-secretstorage = ["cffi (==2.0.0)", "cryptography (==48.0.0)", "jeepney (==0.9.0)", "pycparser (==3.0)", "secretstorage (==3.5.0)", "typing-extensions (==4.15.0)"]
+secretstorage = ["secretstorage"]
 
 [[package]]
 name = "yt-dlp-ejs"
@@ -2122,4 +2120,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = "~3.13"
-content-hash = "423b577d6a86fda57dbc6ee2fa2cef6133f88235d07e1ab76264510a8d14300d"
+content-hash = "d4f0f4050800687846e7c91ebffd619c745e015e504b491eeaf79de66125b66c"
