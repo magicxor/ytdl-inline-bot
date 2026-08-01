@@ -11,7 +11,7 @@ python = "~3.13"
 yt-dlp = {extras = ["default"], version = "^2026.7.4"}
 certifi = "^2026.7.22"
 brotli = "^1.2.0"
-websockets = "^17.0"
+websockets = "^17.0.1"
 requests = "^2.34.2"
 curl-cffi = "^0.15.0"
 pycryptodome = "^3.23.0"
