@@ -30,16 +30,12 @@ jobs:
         python-version: ${{ matrix.python-version }}
 
     - name: Install Poetry
-      uses: abatilo/actions-poetry@v3
+      uses: abatilo/actions-poetry@v4
       with:
         poetry-version: ${{ matrix.poetry-version }}
 
     - name: Install dependencies
-      run: |
-        poetry config virtualenvs.create false
-        poetry install --no-interaction --no-ansi
+      run: poetry install --no-interaction --no-ansi
 
     - name: Check types with mypy
-      run: |
-        echo "Checking types in $file..."
-        mypy --strict ./ytdl_inline_bot
+      run: poetry run mypy --strict ./ytdl_inline_bot
